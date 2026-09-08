@@ -81,6 +81,7 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
 .flag:disabled{opacity:.3}
 .sumline{display:flex;justify-content:space-between;font-family:var(--mono);font-size:13px;color:var(--muted);padding:10px 2px 4px;border-top:1px solid var(--line);margin-top:6px}
 .sumline b{color:var(--fg);font-size:15px}
+.sumline.nb{border-top:none;margin-top:0;padding-top:3px}
 
 /* menu */
 .search{width:100%;padding:12px 13px;background:var(--bg2);border:1px solid var(--line);border-radius:6px;color:var(--fg);font-size:15px;margin-bottom:10px}
@@ -99,6 +100,8 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
 .tag.go{background:var(--busy);color:#fff}
 .tag.lim{background:var(--precheck);color:#fff;font-family:var(--mono)}
 .tag.mod{background:var(--bg3);color:var(--muted)}
+.tag.alg{background:#6E2A26;color:#F3C9C4}
+.tag.alg.hit{background:var(--alert);color:#fff;box-shadow:0 0 0 1.5px #E0847C}
 .dish.off{opacity:.34;pointer-events:none}
 .crumb{font-size:11px;color:var(--muted);margin-top:2px}
 
@@ -120,6 +123,8 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
 .sheet .acts{display:flex;gap:8px;margin-top:6px}
 .rowbtn{width:100%;text-align:left;padding:14px 12px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--fg);font-size:14.5px;margin-bottom:7px;cursor:pointer}
 .rowbtn.danger{color:#E0847C}
+.alginfo{background:rgba(169,53,44,.14);border:1px solid var(--alert);color:#E0847C;border-radius:6px;padding:9px 11px;font-size:13px;line-height:1.45;margin-bottom:14px}
+.wineinfo{color:#C9A24A;font-size:13.5px;line-height:1.4;margin:-8px 0 14px;padding:2px}
 
 /* settings / stop */
 .card{background:var(--bg2);border:1px solid var(--line);border-radius:7px;padding:14px;margin-bottom:12px}
@@ -131,6 +136,7 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
 .stoprow{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
 .stoprow .sn{flex:1;font-size:13.5px;line-height:1.3}
 .stoprow .sc{font-size:11px;color:var(--muted)}
+.wprice{font-family:var(--mono);font-size:13px;color:var(--fg);white-space:nowrap;align-self:center;font-weight:600}
 .mini{padding:7px 10px;border-radius:5px;border:1px solid var(--line);background:var(--bg2);color:var(--muted);font-size:11.5px;font-weight:600;cursor:pointer}
 .mini.stopon{background:var(--alert);border-color:var(--alert);color:#fff}
 .mini.goon{background:var(--busy);border-color:var(--busy);color:#fff}
@@ -181,50 +187,414 @@ const store = {
 
 /* ---------- default menu (replace in settings) ---------- */
 const DEFAULT_MENU = `# Кухня
-## Салаты
-Цезарь с курицей | 3200 | ~7 | ?добавка: пармезан, анчоусы
-Греческий | 2800 | ~5
-Салат с тунцом | 3900 | ~7
+## Салаты и закуски
+Маринованные оливки, шичими тогараши | 4800 | ~4 | @кунжут | $Gufo Pinot Grigio (бокал)
+Томаты ким чи, кунжут ким чи | 3300 | ~4 | @кунжут, арахис, соя, цитрусовые | $Amalinda Sauvignon Blanc (бокал)
+Буррата микс томатов | 5700 | ~5 | @молоко | $Tholomies Cremant (бокал)
+Паштет из куриной печени | 3400 | ~4 | @молоко, соя, сульфиты, глютен, арахис, цитрусовые | $Loire Pinot Noir (бокал)
+Хумус | 3800 | ~4 | @кунжут, глютен, арахис, соя, цитрусовые | $Gufo Pinot Grigio (бокал)
+Вителло тонато | 5900 | ~6 | @горчица, яйцо, рыба, сульфиты | $Loire Pinot Noir (бокал)
+Сыр Лабане | 3800 | ~5 | @молоко, цитрусовые, кунжут, глютен | $Amalinda Sauvignon Blanc (бокал)
+Сет Мезе | 4500 | ~8 | @кунжут, молоко, цитрусовые, орехи, арахис, соя, глютен | $Serena Prosecco (бокал)
+Жареный халуми | 3600 | ~6 | @молоко, мёд, кунжут, арахис, соя, цитрусовые | $Serena Prosecco (бокал)
+Креветки на хоспере | 5700 | ~10 | @ракообразные, глютен, цитрусовые, молоко | $Loire Chardonnay (бокал)
+Салат из томатов | 3800 | ~6 | @орехи, молоко, цитрусовые | $Serena Prosecco (бокал)
+Салат с тёплым цыплёнком и пармезаном | 5600 | ~7 | @яйцо, молоко, рыба, горчица | $Loire Chardonnay (бокал)
+Зелёный салат с креветками | 4800 | ~7 | @сельдерей, соя, цитрусовые, глютен, ракообразные, молоко | $Amalinda Sauvignon Blanc (бокал)
+Греческий салат | 4400 | ~6 | @горчица, цитрусовые, мёд, молоко | $Gufo Pinot Grigio (бокал)
+Салат с хрустящими баклажанами | 4500 | ~7 | @моллюски, соя, молоко, цитрусовые, кунжут, арахис | $Amalinda Sauvignon Blanc (бокал)
 ## Супы
-Том ям | 4100 | ~14 | ?острота: не острый, средний, острый
-Куриный бульон | 1900 | ~8
-Крем-суп грибной | 2600 | ~10
-## Горячее
-Стейк рибай | 12900 | ~16 | !прожарка: rare~12, medium rare~14, medium~16, medium well~19, well done~22 | ?соус: перечный, грибной, без соуса
-Стейк стриплойн | 9800 | ~15 | !прожарка: rare~11, medium rare~13, medium~15, medium well~18, well done~21
-Паста карбонара | 3600 | ~12
-Лосось на гриле | 7400 | ~15 | ?гарнир: овощи, рис, картофель
-Бургер классический | 4200 | ~13 | !прожарка котлеты: medium~12, well done~15 | ?добавка: бекон, сыр, халапеньо
+Грибной суп | 3800 | ~8 | @молоко, глютен
+Куриный суп с фрикадельками | 3000 | ~9 | @глютен, яйцо
+Буйябес с морепродуктами | 5500 | ~12 | @моллюски, ракообразные, рыба, сельдерей, сульфиты
+## Основные
+Бедро цыплёнка | 6000 | ~16 | @орехи, глютен, рыба, сульфиты, кунжут | $Sun Gate Zinfandel (бокал)
+Куриное филе | 6100 | ~16 | @молоко | $Loire Chardonnay (бокал)
+Утиная ножка конфи | 9200 | ~18 | @молоко, цитрусовые, сульфиты | $Sun Gate Zinfandel (бокал)
+Сибас аква пацца | 10400 | ~18 | @рыба, молоко, кунжут | $Gufo Pinot Grigio (бокал)
+Лосось с соусом берблан | 8800 | ~16 | @рыба, молоко, соя, сульфиты, кунжут, арахис, цитрусовые | $Loire Chardonnay (бокал)
+Бефстроганов из говядины | 8200 | ~15 | @молоко, горчица, сульфиты, соя | $Gufo Merlot (бокал)
+Говяжьи щёки | 9200 | ~22 | @сульфиты, сельдерей, молоко | $Sun Gate Zinfandel (бокал)
+Ризотто с креветками | 6900 | ~16 | @ракообразные, сельдерей, сульфиты, молоко | $Loire Chardonnay (бокал)
+Ризотто с белыми грибами и трюфелем | 6600 | ~16 | @сульфиты, молоко | $Loire Pinot Noir (бокал)
+Паккери с томатами и бурраттой | 6700 | ~14 | @глютен, молоко, соя | $Loire Pinot Noir (бокал)
+Казаречче с соусом Песто и страчателлой | 4700 | ~14 | @глютен, орехи, молоко, цитрусовые | $Gufo Pinot Grigio (бокал)
+Лингвини с креветками и лососем | 5800 | ~15 | @глютен, ракообразные, сельдерей, сульфиты, рыба, молоко | $Tholomies Cremant (бокал)
+Орзо с мини кальмарами и хариссой | 4800 | ~15 | @глютен, моллюски, цитрусовые, молоко, ракообразные, сельдерей, сульфиты, кунжут | $Amalinda Sauvignon Blanc (бокал)
+## Josper / Kazbeef Premium
+Рибай | 23500 | ~20 | !прожарка: rare~16, medium rare~18, medium~20, medium well~23, well done~26 | @молоко, сельдерей, сульфиты, соя | $Sun Gate Zinfandel (бокал)
+Нью-Йорк (Стриплойн) | 15000 | ~19 | !прожарка: rare~15, medium rare~17, medium~19, medium well~22, well done~25 | @молоко, сельдерей, сульфиты, соя | $Sun Gate Zinfandel (бокал)
+Тендерлойн (Филе-миньон) | 11500 | ~19 | !прожарка: rare~15, medium rare~17, medium~19, medium well~22, well done~25 | @молоко, сельдерей, сульфиты, соя | $Loire Pinot Noir (бокал)
+Говяжье ребро (Шорт риб) | 10500 | ~24 | @сульфиты, соя, глютен, рыба, мёд, сельдерей, горчица | $Sun Gate Zinfandel (бокал)
+Цыплёнок на хоспере | 8400 | ~18 | @молоко, орехи, кунжут, горчица, сульфиты | $Loire Chardonnay (бокал)
+Сибас целиком на хоспере | 13700 | ~20 | @рыба, цитрусовые, сульфиты, молоко | $Gufo Pinot Grigio (бокал)
+Дорадо целиком на хоспере | 11000 | ~20 | @рыба, цитрусовые, сульфиты, молоко | $Gufo Pinot Grigio (бокал)
+Брокколи на хоспере | 4200 | ~12 | @цитрусовые, кунжут, арахис, соя, кокос | $Loire Pinot Noir (бокал)
+Бургер из говядины | 7200 | ~14 | !прожарка котлеты: medium~13, well done~16 | @глютен, сульфиты, горчица, яйцо, рыба, арахис, соя, цитрусовые | $Sun Gate Zinfandel (бокал)
 ## Гарниры
-Картофель фри | 1400 | ~7
-Овощи гриль | 1800 | ~9
-Рис | 1100 | ~5
+Картофельное пюре | 2600 | ~8 | @молоко
+Картофельные дипперы | 2600 | ~9 | @молоко, яйцо, цитрусовые, сульфиты
+Картофель фри | 2300 | ~8 | @молоко, яйцо, цитрусовые, сульфиты
+Брокколи в кляре | 2600 | ~9 | @кунжут, арахис, соя, цитрусовые, глютен, яйцо
+Батат фри | 3200 | ~9 | @молоко, яйцо, цитрусовые, сульфиты
+Овощи гриль | 2600 | ~9 | @сульфиты
+Спаржа гриль | 4200 | ~10 | @яйцо, молоко, цитрусовые
+Початок кукурузы | 2200 | ~8 | @кунжут
+Картофель хоспер | 2000 | ~10 | @молоко
+## Завтраки
+Фирменный завтрак | 5600 | ~12 | @молоко, цитрусовые, сульфиты, рыба, яйцо, кунжут, арахис, соя
+Зелёный завтрак | 5000 | ~12 | @соя, цитрусовые, яйцо, горчица, мёд, сельдерей, глютен, рыба, молоко, кунжут
+Бенедикт на картофельном рости | 4900 | ~13 | @яйцо, молоко, глютен, рыба, цитрусовые
+Французский омлет | 4200 | ~11 | @яйцо, ракообразные, молоко, соя, цитрусовые
+Хумус (завтрак) | 3300 | ~8 | @кунжут, яйцо, цитрусовые, арахис, соя, глютен
+Сырники из иримшика | 3400 | ~10 | @молоко, яйцо, глютен
 
 # Бар
-## Кофе
-Эспрессо | 900 | ~2
-Американо | 1100 | ~2 | ?молоко: без молока, обычное, растительное
-Капучино | 1500 | ~3 | ?молоко: обычное, растительное | ?сироп: карамель, ваниль, лесной орех, без сиропа
-Латте | 1600 | ~3 | ?молоко: обычное, растительное | ?сироп: карамель, ваниль, лесной орех, без сиропа
-Раф | 1800 | ~4 | ?сироп: карамель, ваниль, без сиропа
-## Чай
-Черный | 1200 | ~4
-Зеленый | 1200 | ~4
-Облепиховый | 1900 | ~5
-## Напитки
-Лимонад домашний | 1600 | ~4 | ?вкус: мохито, малина, тархун
-Вода без газа | 700 | ~1
-Вода с газом | 700 | ~1
-Свежевыжатый сок | 2400 | ~4 | !вид: апельсин, яблоко, грейпфрут
-
-# Десерты
-Чизкейк | 2600 | ~3
-Наполеон | 2400 | ~3
-Мороженое | 1500 | ~2 | ?вкус: ванильное, шоколадное, фисташковое`;
+## Вода и напитки
+Miglior Pearl 0.75 л | 3500
+Miglior Perfection 0.75 л | 3500
+Miglior 0.5 л | 2500
+Nabeglavi 0.2 л | 2500
+Turan Natural Water 0.5 л | 2000
+Acqua Panna 0.25 л | 3600
+Acqua Panna Special Edition 0.75 л | 6500
+San Pellegrino | 0 | !объём: 0.25 л~~3600, 0.75 л~~6500
+Сок Pago в ассортименте 0.2 л | 3000
+Pepsi / Mirinda / 7 Up 0.25 л | 2500
+San Pellegrino Tonica 0.2 л | 3200
+## Кофе Molinari
+Эспрессо | 1500 | ~3
+Американо | 2000 | ~3
+Капучино | 2500 | ~4 | @молоко
+Латте Арома | 2500 | ~4 | @молоко
+## Свежевыжатые соки
+Апельсин | 2900 | ~3
+Грейпфрут | 3500 | ~3
+Яблоко | 2900 | ~3
+Морковь | 2900 | ~3
+Ананас | 3500 | ~3
+## Лимонады
+Крем сода | 4000 | ~4
+Манго-маракуйя | 4000 | ~4
+Груша ревень | 4000 | ~4
+Цитрус с бергамотом | 4000 | ~4
+Клубничный улун | 4000 | ~4
+Клюква со специями | 4000 | ~4
+## Авторский чай
+Алматинский | 4500 | ~5
+Марокканский | 4500 | ~5
+Облепиха-имбирь | 4500 | ~5
+Ташкентский | 4500 | ~5
+Ананас-маракуйя (чай) | 4500 | ~5
+Ягодный | 4500 | ~5
+Персик-жасмин | 4500 | ~5
+## Чёрный чай Dammann Frères
+English Breakfast | 3500 | ~5
+Earl Grey | 3500 | ~5
+Puer | 3500 | ~5
+Black Tea with Thyme | 3500 | ~5
+Taiga | 3500 | ~5
+Masala | 3500 | ~5
+## Зелёный чай Dammann Frères
+Fancy Sencha | 3500 | ~5
+Sowing Chamomile | 3500 | ~5
+Jasmine Gold | 3500 | ~5
+Te Guan Yin | 3500 | ~5
+Raspberry Linden | 3500 | ~5
+## Фруктовый чай Dammann Frères
+Wild Cherry | 3500 | ~5
+The Vert La Menthe | 3500 | ~5
+Chamomile Flowers | 3500 | ~5
+Fruits de la Passion | 3500 | ~5
+Rooibos Orange | 3500 | ~5
+## Энергетические напитки
+Red Bull Energy Drink 0.25 л | 3000
+Red Bull Sugarfree 0.25 л | 3000
+Red Bull Yellow Edition 0.25 л | 3500
+Red Bull Red Edition 0.25 л | 3500
+## Пиво бутылочное
+Blanc 1664 Rose 0.43 л | 3000
+Holsten Light 0.5 л | 2400
+Carlsberg 0.44 л | 2400
+Paulaner 0.5 л | 5000
+Asahi 0.33 л | 3700
+Guinness 0.44 л | 5600
+## Разливное пиво
+Paulaner (разливное) | 0 | !объём: 0.35 л~~4000, 0.5 л~~5000
+Carlsberg (разливное) | 0 | !объём: 0.35 л~~1800, 0.5 л~~2500
+Blanc 1664 (разливное) | 0 | !объём: 0.35 л~~2800, 0.5 л~~3500
+## Медовуха Medovaya Marka
+Классическая 125 мл | 2000
+Honey Eco Meadwine 125 мл | 3000
+Arawine 125 мл | 3500
+Дегустационный сет 3×50 мл | 4500
+## Вермуты и биттеры
+Silvio Carta Servito Bianco 100 мл | 5500
+Silvio Carta Rosso 100 мл | 6000
+Silvio Carta Aspide Aperitivo 50 мл | 3500
+Luxardo Bitter 50 мл | 2500
+Lillet Blanc 100 мл | 2500
+Lillet Rose 100 мл | 2500
+## Ликёры
+Drambuie 50 мл | 2500
+Sambuca Dei Cesari 50 мл | 2000
+Malibu 50 мл | 2600
+Kahlua 50 мл | 3000
+Bols 50 мл | 2000
+## Ледяной шот −18°C
+Jägermeister | 2500
+Jägermeister Culture Orange | 2500
+Jägermeister Herbal Green | 2500
+## Граппа
+Castel Giocondo Grappa 50 мл | 6000
+## Коньяк
+Lheraud XO Eugenie 50 мл | 37000
+Martell VS 50 мл | 3800
+Martell VSOP 50 мл | 6500
+Martell XO 50 мл | 28000
+Martell L'Or 50 мл | 170000
+## Бренди
+Ararat Akhtamar 10 y.o 50 мл | 4000
+Ararat Apricot 50 мл | 3000
+Ararat Nairi 20 y.o 50 мл | 9500
+## Кальвадос
+Calvados Christian Drouin XO 50 мл | 12500
+Calvados Christian Drouin Selection 50 мл | 4500
+## Ром
+Bayou Single Barrel Batch 50 мл | 4000
+Bayou Pink 50 мл | 3000
+Bayou Mardi Gras XO 50 мл | 9000
+Havana Club 3 y.o. 50 мл | 2500
+Havana Club Cuban Spiced 50 мл | 3000
+Havana Club Seleccion de Maestros 50 мл | 6500
+Bumbu Original 50 мл | 3600
+Bumbu XO 50 мл | 5000
+## Джин
+Hendrick's 50 мл | 4800
+Hendrick's Orbium 50 мл | 6100
+Beefeater London Dry Gin 50 мл | 2500
+Beefeater Blood Orange 50 мл | 2500
+Beefeater Pink Strawberry 50 мл | 2500
+Malfy Rosa 50 мл | 3500
+Monkey 47 50 мл | 6800
+## Текила
+Milagro Anejo 50 мл | 6500
+El Jimador Blanco 50 мл | 3000
+Clase Azul Reposado 0.7 л | 350000
+Olmeca Altos Plata 100% Agave 50 мл | 2500
+Olmeca Altos Reposado 100% Agave 50 мл | 2500
+Avion Cristalino 50 мл | 11000
+## Водка
+Reyka 50 мл | 4000
+Finlandia 50 мл | 2500
+Русский Стандарт Платинум 50 мл | 2800
+Summum Sigle Estate Organic 50 мл | 3800
+Absolut Elyx 50 мл | 3000
+Absolut Original 50 мл | 2500
+## Казахская водка
+Burkit Noble Single Malt 50 мл | 4800
+Kyzylzhar Gold 50 мл | 2500
+Qazaq Eli Nomad Select 50 мл | 2000
+## Американский виски
+Jack Daniel's Old #7 50 мл | 3300
+Jack Daniel's Tennessee Honey 50 мл | 3300
+Jack Daniel's Tennessee Apple 50 мл | 3300
+Jack Daniel's Single Barrel 50 мл | 5400
+Four Roses Original 50 мл | 2500
+Four Roses Small Batch 50 мл | 3500
+## Шотландский односолодовый виски
+The Balvenie Double Wood 12 y.o. 50 мл | 11500
+The Balvenie Caribbean Cask 14 y.o. 50 мл | 15000
+Glenfiddich 12 y.o. 50 мл | 6800
+Glenfiddich 15 y.o. 50 мл | 10500
+Glenfiddich 18 y.o 50 мл | 17000
+Glenfiddich Gran Reserva 21 y.o. 50 мл | 37500
+The Glenlivet 12 y.o. Double Oak 50 мл | 6500
+The Glenlivet 15 y.o. French Oak Reserve 50 мл | 10700
+The Glenlivet 18 y.o. 50 мл | 16700
+The Glenlivet 25 y.o. 50 мл | 59800
+Aberlour 12 y.o 50 мл | 7500
+Aberlour 18 y.o 50 мл | 26500
+The Macallan Fine Oak 12 y.o. 50 мл | 10500
+The Macallan 15 y.o. 50 мл | 20000
+The Macallan 18 y.o. 50 мл | 46500
+## Купажированный виски
+Monkey Shoulder 50 мл | 4500
+Monkey Shoulder Smokey 50 мл | 5900
+Ballantine's Finest 50 мл | 2500
+Ballantine's 7 y.o. 50 мл | 3000
+Ballantine's 17 y.o. 50 мл | 8000
+Chivas Regal 12 y.o. 50 мл | 4500
+Chivas Regal XV 15 y.o. 50 мл | 6500
+Chivas Regal 16 y.o. 50 мл | 7500
+Chivas Regal 18 y.o. 50 мл | 9500
+Chivas Regal 25 y.o. 50 мл | 51500
+The Deacon 50 мл | 3800
+## Ирландский виски
+Tullamore D.E.W. 50 мл | 3000
+Tullamore D.E.W 14 Single Malt y.o 50 мл | 7700
+Tullamore D.E.W 18 Single Malt y.o 50 мл | 12800
+Jameson Original 50 мл | 3500
+Jameson Black Barrel 50 мл | 4500
+Jameson Crested 50 мл | 3800
+## Японский виски
+Tenjaku Pure Malt Sherry Cask 50 мл | 6500
+Hibiki Suntory Whisky 12 y.o 50 мл | 25000
+The Yamazaki Single Malt 12 y.o 50 мл | 45000
+## Классические коктейли
+Aperol Sour | 5000 | ~5
+Whiskey Sour | 3800 | ~5
+Rum Sour | 3800 | ~5
+Long Island Iced Tea | 5000 | ~5
+Aperol Spritz | 5000 | ~4
+White Russian | 3800 | ~4 | @молоко
+Negroni | 3800 | ~4
+Porn Star Martini | 3800 | ~5
+Mai Tai | 3800 | ~5
+Clover Club | 3800 | ~5
+## Безалкогольные коктейли
+Aperol Spritz (0%) | 2800 | ~4
+Negroni (0%) | 2800 | ~4
+Whiskey Sour (0%) | 2800 | ~4
+Gin Tonic (0%) | 2800 | ~4
+Hugo (0%) | 2800 | ~4
+Bellini (0%) | 2800 | ~4
+## Авторские коктейли
+KÖK Signature | 5500 | ~6 | @молоко
+Kazakh Courchevel | 5500 | ~6
+Continental | 5500 | ~6
+La Rubelle | 5500 | ~6
+Aleria Fizz | 5500 | ~6 | @кунжут
+Fantasy | 5500 | ~6
+Butter Washed | 5500 | ~6
+## Горячие напитки
+Glint Wine Red | 4000 | ~5
+Glint Wine White | 4000 | ~5
+Irish Coffee | 4000 | ~5`;
 
 const DEFAULT_TABLES = `Основной зал: 1,2,3,4,5,6,7,8
 Терраса: 21,22,23,24
 Бар: 31,32`;
+
+const WINE_CARD = `# Шампанское
+## Франция
+Pertois-Moriset L'Assemblage 1er Cru N.V. | 80000 | Шампань · Шардоне, Пино Нуар
+Raphael Bereche Brut Reserve N.V. | 125000 | Шампань · Шардоне, Пино Нуар, Пино Менье
+Bollinger Special Cuvee Brut N.V. RP92 | 135000 | Шампань · Пино Нуар, Шардоне, Пино Менье
+G.H.Mumm Grand Cordon | 80000 | Шампань
+G.H.Mumm Grand Cordon Rose | 90000 | Шампань · розовое
+Perrier-Jouet Grand Brut | 90000 | Шампань
+Perrier-Jouet Blason Rose | 100000 | Шампань · розовое
+# Игристое
+## Франция
+Bastor Lamontagne Cremant de Bordeaux Brut NV | 35000 | Бордо · Мерло, Семийон
+Tholomies Cremant de Limoux Brut N.V. | 25000 | Лангедок · Шардоне, Шенен Блан, Пино Нуар
+## Испания
+Llopart Reserva Brut 2021-2022 RP91 | 35000 | Каталония · Шьярел-Ло, Макабео, Парельяда
+Llopart Reserva Brut Rose 2021-2022 | 38000 | Каталония · розовое, Монастрель, Гарнача
+## Италия
+Adriano Adami Prosecco di Valdobbiadene "Dei Casel" Extra Dry N.V. | 35000 | Венето · Глера
+Serena Asti N.V. | 20000 | Пьемонт · Мускат, сладкое
+Serena Gran Cuvee 1881 Extra Dry 2023 | 20000 | Венето
+Serena Prosecco Treviso Extra Dry N.V. | 23000 | Венето · Глера
+Serena Prosecco Rose Brut 2022 | 25000 | Венето · розовое, Глера, Пино Нуар
+Serena 0 Zero Non Alcohol NV | 18000 | Венето · безалкогольное, Мускат
+# Розовое вино
+## Разные страны
+Feu Rose d'Anjou 2022 | 33000 | Франция, Луара · Гролло, Гамэ
+Sun Gate White Zinfandel 2021 | 32000 | США, Калифорния · Зинфандель, полусладкое
+Mateus Rose Original N.V. | 33000 | Португалия · Бага, Руфет, Турига Франка
+# Белое вино
+## Франция
+Andre Lorentz Riesling 2022 | 28000 | Эльзас · Рислинг
+La Mariniere Muscadet Sevre et Main 2021 | 16500 | Луара · Мюскадэ
+Les Roches Blanches Vouvray 2022 | 20000 | Луара · Шенен Блан
+Gitton Sancerre Blanc l'Amiral 2021 | 44000 | Луара · Совиньон Блан
+Domaine Faiveley Joseph Faiveley Bourgogne Chardonnay 2022 | 46000 | Бургундия · Шардоне
+Domaine Jacques Prieur Beaune 1er Cru Champs Pimont | 110000 | Бургундия · Шардоне
+Chateau Saint-Robert Cuvee Poncet-Deville, Graves 2021 | 50000 | Бордо · Совиньон Блан
+Le Sweet Filou Blanc Sweet N.V | 18000 | Франция · полусладкое, Уньи Блан, Коломбар
+## Италия
+Tenute San Sisto Massaccio Verdicchio Castelli di Jesi Superiore 2022 | 40000 | Марке · Вердиккио
+Nals Magreid "Stein" Sauvignon Blanc 2022 | 46000 | Альто-Адидже · Совиньон Блан
+Nals Magreid "Magred" Chardonnay 2022 | 50000 | Альто-Адидже · Шардоне
+Avignonesi Il Marzocco Chardonnay 2022 | 55000 | Тоскана · Шардоне
+Cantina Tollo "Colle Cavalieri" Trebbiano d'Abruzzo 2022 | 16000 | Абруццо · Треббьяно
+Varvaglione "MOI" Chardonnay 2025 | 16500 | Пулия · Шардоне
+Varvaglione "12 e Mezzo" Bianco Puglia Bio 2022 | 25000 | Пулия · Мальвазия, Шардоне, Фиано
+Benanti Etna Bianco DOC 2022 | 37000 | Сицилия · Кариканте
+Girolamo Russo San Lorenzo Etna Bianco 2022 RP93 | 99000 | Сицилия · Кариканте, Каттарато
+## Испания
+Terra Linda Viura Chardonnay 2024 | 18000 | Кастилия-ла-Манча · Виура, Шардоне
+Bruno Murciano Las Blancas 2021 RP90 | 33000 | Валенсия · Мерсегера, Мальвазия, Макабео
+## Португалия
+Mateus Branco N.V. | 16000 | Португалия · Аринту, Бикаль, Фернау Пиреш
+## Германия
+Devil's Rock Riesling 2021 | 21000 | Пфальц · Рислинг
+## Австрия
+Domaene Gobelsburg Gruner Veltliner 2023 | 25000 | Кампталь · Грюнер Вельтлинер
+Domaene Gobelsburg Riesling 2021 | 29000 | Кампталь · Рислинг
+## Новая Зеландия
+Curly Sheep Sauvignon Blanc 2023 | 22000 | Нельсон · Совиньон Блан
+Dog Point Vineyard Sauvignon Blanc 2023 | 47000 | Марлборо · Совиньон Блан
+## Австралия
+Torbreck Woodcutter's Semillon 2023 | 35000 | Барроса · Семийон
+## Южная Африка
+Cape Dream Chenin Blanc Western Cape 2022 | 16000 | Западный Кейп · Шенен Блан
+Villiera Jasmine 2023 | 21000 | Западный Кейп · Мускат, Гевюрцтраминер, Рислинг
+## Чили
+U by Undurraga Chardonnay 2022 | 16000 | Центральная Долина · Шардоне
+Undurraga Terroir Hunter Sauvignon Blanc, Leyda 2021 | 45000 | Лейда · Совиньон Блан
+## Аргентина
+Susana Balbo Crios Torrontes 2023 | 27000 | Мендоса · Торронтес
+# Красное вино
+## Франция
+Domaine Faiveley Joseph Faiveley Bourgogne Pinot Noir 2022 | 46000 | Бургундия · Пино Нуар
+Domaine Faiveley Gevrey-Chambertin Vieilles Vignes 2022 | 110000 | Бургундия · Пино Нуар
+Chateau Timberlay, Bordeaux Rouge 2021 | 28000 | Бордо · Мерло, Каберне Совиньон
+Petit Manou, Medoc 2020 | 35000 | Бордо · Каберне Совиньон, Мерло
+La Dame d'Angludet 2019 | 60000 | Бордо · Каберне Совиньон, Мерло, Каберне Фран
+Chateau Giscours Margaux 2017 | 135000 | Бордо, Марго · Каберне Совиньон, Мерло
+## Италия
+Masi Campofiorin Ripasso Style 2020 | 34000 | Венето · Корвина, Рондинелла, Молинара
+Masi "Costasera" Amarone della Valpolicella Classico 2018 | 88000 | Венето · Амароне
+Bertani Secco 2021 | 45000 | Венето · Корвина, Рондинелла, Молинара
+Giuseppe Cortese Barbaresco 2019 | 120000 | Пьемонт · Неббиоло
+Elvio Cogno Dolcetto d'Alba Mandorlo 2022 | 60000 | Пьемонт · Дольчетто
+Elvio Cogno Barolo Cascina Nuova 2020 | 130000 | Пьемонт · Неббиоло
+Fuligni Brunello di Montalcino 2017 | 160000 | Тоскана · Санджовезе
+Mazzei "Fonterutoli" Chianti Classico 2020 | 80000 | Тоскана · Санджовезе
+Avignonesi Nobile di Montepulciano 2019 | 90000 | Тоскана · Санджовезе
+Barbanera RIRO Toscana Rosso IGT NV | 42000 | Тоскана · полусладкое
+Cantina Tollo "Colle Cavalieri" Montepulciano d'Abruzzo 2022 | 32000 | Абруццо · Монтепульчано
+Varvaglione "MOI" Primitivo di Manduria 2023 | 45000 | Пулия · Примитиво
+Varvaglione Sorgea 4 Uva 2022 | 60000 | Пулия · Каберне Совиньон, Сира, Примитиво
+Varvaglione "Chicca" Primitivo di Manduria Dolce Naturale 2023 | 70000 | Пулия · Примитиво, сладкое
+Elena Fucci SCEG Aglianico del Vulture 2021 | 42000 | Базиликата · Альянико
+Benanti Etna Rosso DOC 2021 | 60000 | Сицилия · Нерелло Маскалезе
+Girolamo Russo Feudo di Mezzo Etna Rosso 2021 | 150000 | Сицилия · Нерелло Маскалезе
+## Испания
+Bodegas Roda "Sela" 2019 | 62000 | Риоха · Темпранильо, Грасиано, Гарнача
+Bodegas La Horra Corimbo 2019 | 43000 | Рибера дель Дуэро · Темпранильо
+Bruno Murciano Parajes del Cabriel 2020 | 25000 | Валенсия · Бобаль
+Terra Linda Garnacha 2024 | 16000 | Кастилия-ла-Манча · Гренаш
+## Австрия
+Domaene Gobelsburg Zweigelt 2022 | 21000 | Кампталь · Цвайгельт
+## Австралия
+Torbreck Woodcutter's Shiraz 2021 | 37000 | Барроса · Шираз
+Torbreck The Steading 2020 | 55000 | Барроса · Гренаш, Шираз, Матаро
+## США
+Sun Gate Cabernet Sauvignon 2021 | 16000 | Калифорния · Каберне Совиньон
+Erath Pinot Noir 2017 | 45000 | Орегон · Пино Нуар
+## Южная Африка
+Villiera Pinotage 2023 | 22000 | Западный Кейп · Пинотаж
+## Чили
+U by Undurraga Cabernet Sauvignon 2021 | 16000 | Центральная Долина · Каберне Совиньон
+Undurraga Terroir Hunter Carmenere, Peumo 2020 | 43000 | Пеумо · Карменер
+Undurraga Altazor, Valle del Maipo 2016 | 65000 | Майпо · Каберне Совиньон, Кариньян, Карменер
+## Аргентина
+Susana Balbo Brioso 2021 | 75000 | Мендоса · Каберне Совиньон, Мальбек, Каберне Фран
+Susana Balbo Crios Malbec 2022 | 27000 | Мендоса · Мальбек`;
 
 /* ---------- state ---------- */
 let S = {
@@ -232,9 +602,10 @@ let S = {
   menuText:DEFAULT_MENU, tablesText:DEFAULT_TABLES,
   orders:{}, stop:{}, go:{}, limits:{},
   query:'', openCats:{}, sheet:null, toast:null,
-  lateMin:12, sound:true, defaultCook:0, ready:[]
+  lateMin:12, serviceFee:10, sound:true, defaultCook:0, ready:[]
 };
 let menu = {cats:[], dishes:[]};
+let wines = [];
 
 /* ---------- menu parsing ---------- */
 function slug(s){ return s.toLowerCase().replace(/[^a-zа-яё0-9]+/gi,'-'); }
@@ -253,26 +624,31 @@ function parseMenu(text){
     const parts=line.split('|').map(p=>p.trim());
     const name=parts[0]; if(!name) return;
     const price=parts[1]?parseInt(parts[1].replace(/\D/g,''),10)||0:0;
-    const mods=[]; let cook=null;
+    const mods=[]; let cook=null, allergens=[], wine=null;
     for(let i=2;i<parts.length;i++){
       let p=parts[i]; if(!p) continue;
       if(p.startsWith('~')){ cook=parseFloat(p.slice(1).replace(',','.'))||null; continue; }
+      if(p.startsWith('@')){ allergens=p.slice(1).split(',').map(a=>a.trim()).filter(Boolean); continue; }
+      if(p.startsWith('$')){ wine=p.slice(1).trim()||null; continue; }
       let required=false;
       if(p.startsWith('!')){required=true;p=p.slice(1);}
       else if(p.startsWith('?')){p=p.slice(1);}
       const ci=p.indexOf(':'); if(ci<0) continue;
       const gname=p.slice(0,ci).trim();
+      // вариант: label[~время[~цена]] — время и цена опциональны и переопределяют базовые
       const opts=p.slice(ci+1).split(',').map(o=>{
         const t=o.trim(); if(!t) return null;
-        const ti=t.lastIndexOf('~');
-        if(ti>0) return {label:t.slice(0,ti).trim(), cook:parseFloat(t.slice(ti+1).replace(',','.'))||null};
-        return {label:t, cook:null};
+        const seg=t.split('~');
+        const label=seg[0].trim(); if(!label) return null;
+        const oCook = seg.length>1 ? (parseFloat((seg[1]||'').replace(',','.'))||null) : null;
+        const oPrice = seg.length>2 ? (parseInt((seg[2]||'').replace(/\D/g,''),10)||null) : null;
+        return {label, cook:oCook, price:oPrice};
       }).filter(Boolean);
       if(gname&&opts.length) mods.push({name:gname,required,options:opts});
     }
     if(!cat){cat={name:'Меню',subs:[]};cats.push(cat);}
     if(!sub){sub={name:'',dishes:[]};cat.subs.push(sub);}
-    const d={id:slug(name),name,price,mods,cook,cat:cat.name,sub:sub.name};
+    const d={id:slug(name),name,price,mods,cook,allergens,wine,cat:cat.name,sub:sub.name};
     sub.dishes.push(d); dishes.push(d);
   });
   return {cats,dishes};
@@ -288,16 +664,34 @@ function parseTables(text){
   });
   return zones;
 }
+function parseWine(text){
+  const out=[]; let cat='', country='';
+  text.split(String.fromCharCode(10)).forEach(raw=>{
+    const line=raw.trim(); if(!line) return;
+    if(line.startsWith('## ')){ country=line.slice(3).trim(); return; }
+    if(line.startsWith('# ')){ cat=line.slice(2).trim(); country=''; return; }
+    const p=line.split('|').map(x=>x.trim());
+    if(!p[0]) return;
+    out.push({name:p[0], price:parseInt((p[1]||'').replace(/\D/g,''),10)||0, meta:p[2]||'', cat, country});
+  });
+  return out;
+}
 
 /* ---------- search: substring OR subsequence ("кпч" -> капучино) ---------- */
-function matches(name,q){
+function textMatch(n,q){
   if(!q) return true;
-  const n=name.toLowerCase(), s=q.toLowerCase().trim();
+  n=(n||'').toLowerCase(); const s=q.toLowerCase().trim();
+  if(!s) return true;
   if(n.includes(s)) return true;
   const words=s.split(/\s+/);
   if(words.length>1 && words.every(w=>n.includes(w))) return true;
   let i=0; for(const ch of n){ if(ch===s[i]) i++; if(i===s.length) return true; }
   return false;
+}
+function matches(name,q){ return textMatch(name,q); }
+function matchesAllergen(dish,q){
+  if(!q||!q.trim()) return false;
+  return (dish.allergens||[]).some(a=>textMatch(a,q));
 }
 
 /* ---------- helpers ---------- */
@@ -336,7 +730,9 @@ function orderStatus(o){
 }
 function readyCount(o){ return o?o.items.filter(i=>isReady(i)).length:0; }
 function unpunched(o){ return o?o.items.filter(i=>!i.punchedAt).reduce((a,i)=>a+i.qty,0):0; }
-function total(o){ return o?o.items.reduce((a,i)=>a+i.price*i.qty,0):0; }
+function subtotal(o){ return o?o.items.reduce((a,i)=>a+i.price*i.qty,0):0; }
+function serviceAmount(o){ return o?Math.round(subtotal(o)*(S.serviceFee||0)/100):0; }
+function total(o){ return subtotal(o)+serviceAmount(o); }
 
 /* ---------- cook time ---------- */
 function cookMinutes(dish, sel){
@@ -348,6 +744,16 @@ function cookMinutes(dish, sel){
     if(opt && opt.cook!=null) best = opt.cook;   // прожарка переопределяет базовое время
   });
   if(best==null && S.defaultCook>0) best = S.defaultCook;
+  return best;
+}
+function dishPrice(dish, sel){
+  let best = dish.price;
+  (dish.mods||[]).forEach(g=>{
+    const chosen = sel && sel[g.name];
+    if(!chosen) return;
+    const opt = g.options.find(o=>o.label===chosen);
+    if(opt && opt.price!=null) best = opt.price;  // вариант объёма/размера переопределяет цену
+  });
   return best;
 }
 function readyAt(i){ return (i.punchedAt && i.cook) ? i.punchedAt + i.cook*60000 : null; }
@@ -420,7 +826,7 @@ function save(){
   saveT=setTimeout(()=>{
     store.set('floor-v2',JSON.stringify({
       menuText:S.menuText,tablesText:S.tablesText,orders:S.orders,
-      stop:S.stop,go:S.go,limits:S.limits,lateMin:S.lateMin,sound:S.sound,defaultCook:S.defaultCook
+      stop:S.stop,go:S.go,limits:S.limits,lateMin:S.lateMin,serviceFee:S.serviceFee,sound:S.sound,defaultCook:S.defaultCook
     }));
   },250);
 }
@@ -428,6 +834,7 @@ async function boot(){
   const raw=await store.get('floor-v2');
   if(raw){ try{ Object.assign(S,JSON.parse(raw)); }catch(e){} }
   menu=parseMenu(S.menuText);
+  wines=parseWine(WINE_CARD);
   render();
 }
 
@@ -447,7 +854,7 @@ function openTable(num,guests){
 }
 function addItem(d,guest,qty,mods,comment){
   const o=order(S.activeTable); if(!o) return;
-  o.items.push({id:uid(),dishId:d.id,name:d.name,price:d.price,qty,guest,mods:mods||{},
+  o.items.push({id:uid(),dishId:d.id,name:d.name,price:dishPrice(d,mods||{}),qty,guest,mods:mods||{},
     comment:comment||'',punchedAt:null,delivered:false,
     cook:cookMinutes(d,mods||{}),notified:false});
   save();
@@ -467,11 +874,12 @@ function render(){
   else if(S.screen==='table') renderTable(tb,mn,bt);
   else if(S.screen==='menu') renderMenu(tb,mn,bt);
   else if(S.screen==='stop') renderStop(tb,mn,bt);
+  else if(S.screen==='wine') renderWine(tb,mn,bt);
   else if(S.screen==='settings') renderSettings(tb,mn,bt);
   if(S.sheet) renderSheet();
   if(S.toast){ const t=document.createElement('div'); t.className='toast'; t.textContent=S.toast; document.body.appendChild(t); }
 }
-function el(html){ const d=document.createElement('div'); d.innerHTML=html.trim(); return d.firstElementChild; }
+function el(html){ const d=document.createElement('div'); d.innerHTML=html.trim(); return d.children.length===1 ? d.firstElementChild : d; }
 function esc(s){ const d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
 
 /* --- floor --- */
@@ -479,8 +887,10 @@ function renderFloor(tb,mn,bt){
   const zones=parseTables(S.tablesText);
   const openN=Object.keys(S.orders).length;
   tb.innerHTML=`<h1>Зал <span class="sub">${openN} откр.</span></h1>
+    <button class="iconbtn" id="go-wine">Вино</button>
     <button class="iconbtn" id="go-stop">Стопы</button>
     <button class="iconbtn" id="go-set">⚙</button>`;
+  tb.querySelector('#go-wine').onclick=()=>{S.screen='wine';S.wq='';render();};
   tb.querySelector('#go-stop').onclick=()=>{S.screen='stop';S.query='';render();};
   tb.querySelector('#go-set').onclick=()=>{S.screen='settings';render();};
 
@@ -567,7 +977,10 @@ function renderTable(tb,mn,bt){
     });
   }
   const up=unpunched(o);
-  mn.appendChild(el(`<div class="sumline"><span>${up?('не пробито: '+up):'всё пробито'}</span><b>${money(total(o))} ₸</b></div>`));
+  const subT=subtotal(o), svc=serviceAmount(o);
+  mn.appendChild(el(`<div class="sumline"><span>${up?('не пробито: '+up):'всё пробито'}</span><span>${money(subT)} ₸</span></div>`));
+  if(svc) mn.appendChild(el(`<div class="sumline nb"><span>сервис ${S.serviceFee}%</span><span>${money(svc)} ₸</span></div>`));
+  mn.appendChild(el(`<div class="sumline nb"><span>итого</span><b>${money(total(o))} ₸</b></div>`));
 
   bt.innerHTML='';
   const addB=el('<button class="btn">+ Блюдо</button>');
@@ -638,7 +1051,7 @@ function renderMenu(tb,mn,bt){
   done.onclick=()=>{S.screen='table';render();};
   bt.appendChild(done);
 }
-function dishRow(d,showCrumb){
+function dishRow(d,showCrumb,allergenHit){
   const r=remaining(d.id), stopped=S.stop[d.id], ok=dishAvailable(d);
   const tags=[];
   if(stopped) tags.push('<span class="tag stop">стоп</span>');
@@ -646,6 +1059,7 @@ function dishRow(d,showCrumb){
   if(r!==null&&!stopped) tags.push(`<span class="tag lim">ост. ${Math.max(0,r)}</span>`);
   if(d.mods.some(m=>m.required)) tags.push('<span class="tag mod">мод</span>');
   if(d.cook) tags.push(`<span class="tag time">${d.cook}м</span>`);
+  if(d.allergens&&d.allergens.length){ const _al=d.allergens; tags.push(`<span class="tag alg${allergenHit?' hit':''}">⚠ ${esc(_al.slice(0,3).join(', '))}${_al.length>3?' +'+(_al.length-3):''}</span>`); }
   const row=el(`<div class="dish ${ok?'':'off'}">
     <div class="dn">${esc(d.name)}${tags.join('')}
       ${showCrumb?`<div class="crumb">${esc(d.cat)}${d.sub?' · '+esc(d.sub):''}</div>`:''}
@@ -658,9 +1072,9 @@ function dishRow(d,showCrumb){
 function renderMenuList(container){
   container.innerHTML='';
   if(S.query.trim()){
-    const found=menu.dishes.filter(d=>matches(d.name,S.query)).slice(0,40);
+    const found=menu.dishes.filter(d=>matches(d.name,S.query)||matchesAllergen(d,S.query)).slice(0,40);
     if(!found.length){ container.appendChild(el('<div class="hint">Ничего не нашлось</div>')); return; }
-    found.forEach(d=>container.appendChild(dishRow(d,true)));
+    found.forEach(d=>container.appendChild(dishRow(d,true,!matches(d.name,S.query)&&matchesAllergen(d,S.query))));
     return;
   }
   const gos=menu.dishes.filter(d=>S.go[d.id]&&dishAvailable(d));
@@ -703,7 +1117,7 @@ function renderStop(tb,mn,bt){
   function fill(){
     list.innerHTML='';
     const src = S.query.trim()
-      ? menu.dishes.filter(d=>matches(d.name,S.query))
+      ? menu.dishes.filter(d=>matches(d.name,S.query)||matchesAllergen(d,S.query))
       : menu.dishes.filter(d=>S.stop[d.id]||S.go[d.id]||S.limits[d.id]!==undefined);
     if(!src.length){
       list.appendChild(el('<div class="hint">Ограничений нет.<br>Найди блюдо в поиске и поставь стоп, гоу или лимит на смену.</div>'));
@@ -742,6 +1156,31 @@ function renderStop(tb,mn,bt){
   bt.appendChild(clr);
 }
 
+function renderWine(tb,mn,bt){
+  bt.style.display='none'; bt.innerHTML='';
+  tb.innerHTML=`<button class="back" id="bk">‹ Зал</button><h1>Винная карта <span class="sub">бутылки · ${wines.length}</span></h1>`;
+  tb.querySelector('#bk').onclick=()=>{S.screen='floor';S.wq='';render();};
+  mn.innerHTML='';
+  const inp=el(`<input class="search" placeholder="Поиск: страна, сорт, название…" value="${esc(S.wq||'')}">`);
+  inp.oninput=e=>{S.wq=e.target.value;fill();};
+  mn.appendChild(inp);
+  const list=el('<div></div>'); mn.appendChild(list);
+  function fill(){
+    list.innerHTML='';
+    const q=(S.wq||'').trim();
+    const src=wines.filter(w=> !q || textMatch(w.name,q)||textMatch(w.country,q)||textMatch(w.meta,q)||textMatch(w.cat,q));
+    if(!src.length){ list.appendChild(el('<div class="hint">Ничего не нашлось</div>')); return; }
+    let curHead=null;
+    src.forEach(w=>{
+      const head = w.cat+(w.country?' · '+w.country:'');
+      if(head!==curHead){ curHead=head; list.appendChild(el(`<div class="zone-title">${esc(head)}</div>`)); }
+      list.appendChild(el(`<div class="stoprow"><div class="sn">${esc(w.name)}${w.meta?`<div class="sc">${esc(w.meta)}</div>`:''}</div><div class="wprice">${money(w.price)} ₸</div></div>`));
+    });
+  }
+  fill();
+  if(S.wq) setTimeout(()=>{inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);},0);
+}
+
 /* --- settings --- */
 function renderSettings(tb,mn,bt){
   bt.style.display='none'; bt.innerHTML='';
@@ -762,7 +1201,7 @@ function renderSettings(tb,mn,bt){
 
   const mcard=el(`<div class="card">
     <h3>Меню</h3>
-    <p># категория · ## подкатегория<br>блюдо | цена | ~минуты готовки | !обязательный модификатор: вариант~минуты, вариант~минуты | ?необязательный: вариант, вариант<br>Время у варианта переопределяет базовое — так rare и well done считаются по-разному.</p>
+    <p># категория · ## подкатегория<br>блюдо | цена | ~минуты | !обяз.мод: вариант~мин~цена, … | ?необяз: вариант, … | @аллерген, аллерген | $вино к блюду<br>Токены после цены — в любом порядке, по первому символу (~ ! ? @ $). У варианта время и цена опциональны и переопределяют базовые — так объёмы (0.15 / 0.25) и прожарки считаются по-разному.</p>
     <textarea id="mt" style="min-height:200px">${esc(S.menuText)}</textarea>
     <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="smallbtn" id="ms">Сохранить меню</button>
@@ -795,6 +1234,17 @@ function renderSettings(tb,mn,bt){
   lcard.querySelector('#lm').onclick=()=>{S.lateMin=Math.max(3,S.lateMin-1);save();render();};
   lcard.querySelector('#lp').onclick=()=>{S.lateMin=Math.min(60,S.lateMin+1);save();render();};
   mn.appendChild(lcard);
+
+  const scard=el(`<div class="card">
+    <h3>Сервисный сбор</h3>
+    <p>Процент к сумме стола. Показывается отдельной строкой в счёте и при закрытии — официант видит, сколько из суммы сбор.</p>
+    <div class="stepper">
+      <button id="sm">−</button><span class="v">${S.serviceFee}%</span><button id="sp">+</button>
+    </div>
+  </div>`);
+  scard.querySelector('#sm').onclick=()=>{S.serviceFee=Math.max(0,S.serviceFee-1);save();render();};
+  scard.querySelector('#sp').onclick=()=>{S.serviceFee=Math.min(30,S.serviceFee+1);save();render();};
+  mn.appendChild(scard);
 
   const perm = ('Notification' in window) ? Notification.permission : 'unsupported';
   const ncard=el(`<div class="card">
@@ -869,12 +1319,15 @@ function renderSheet(){
   else if(t==='mods'){
     const d=S.sheet.dish;
     const cm=cookMinutes(d,S.sheet.sel);
-    sh.appendChild(el(`<h2>${esc(d.name)}</h2><div class="sh-sub">${d.price?money(d.price)+' ₸ · ':''}${esc(d.cat)}${cm?' · готовится '+cm+' мин':''}</div>`));
+    const pr=dishPrice(d,S.sheet.sel);
+    sh.appendChild(el(`<h2>${esc(d.name)}</h2><div class="sh-sub">${pr?money(pr)+' ₸ · ':''}${esc(d.cat)}${cm?' · готовится '+cm+' мин':''}</div>`));
+    if(d.wine) sh.appendChild(el(`<div class="wineinfo">🍷 ${esc(d.wine)}</div>`));
+    if(d.allergens&&d.allergens.length) sh.appendChild(el(`<div class="alginfo">⚠ Аллергены: ${esc(d.allergens.join(', '))}</div>`));
     d.mods.forEach(g=>{
       const f=el(`<div class="field"><label>${esc(g.name)}${g.required?'<span class="req">обязательно</span>':''}</label><div class="chips"></div></div>`);
       const ch=f.querySelector('.chips');
       g.options.forEach(o=>{
-        const b=el(`<button class="chip ${S.sheet.sel[g.name]===o.label?'on':''}">${esc(o.label)}${o.cook?`<span class="chip-t">${o.cook}м</span>`:''}</button>`);
+        const b=el(`<button class="chip ${S.sheet.sel[g.name]===o.label?'on':''}">${esc(o.label)}${o.cook?`<span class="chip-t">${o.cook}м</span>`:''}${o.price!=null?`<span class="chip-t">${money(o.price)} ₸</span>`:''}</button>`);
         b.onclick=()=>{
           if(S.sheet.sel[g.name]===o.label && !g.required) delete S.sheet.sel[g.name];
           else S.sheet.sel[g.name]=o.label;
@@ -915,12 +1368,14 @@ function renderSheet(){
     const i=o.items.find(x=>x.id===S.sheet.itemId);
     if(!i){S.sheet=null;render();return;}
     sh.appendChild(el(`<h2>${esc(i.name)}</h2><div class="sh-sub">Гость ${i.guest} · ${i.qty} шт · ${money(i.price*i.qty)} ₸${i.cook?' · '+i.cook+' мин':''}</div>`));
+    const dd=menu.dishes.find(x=>x.id===i.dishId);
+    if(dd&&dd.allergens&&dd.allergens.length) sh.appendChild(el(`<div class="alginfo">⚠ Аллергены: ${esc(dd.allergens.join(', '))}</div>`));
 
     const cf2=el(`<div class="field"><label>Время готовки, мин</label><div class="stepper">
-      <button id="cm-">−</button><span class="v" id="cm-v">${i.cook||'—'}</span><button id="cm+">+</button>
+      <button id="ckm">−</button><span class="v" id="ckv">${i.cook||'—'}</span><button id="ckp">+</button>
       <span style="color:var(--muted);font-size:12.5px">меняет отсчёт до готовности</span></div></div>`);
-    cf2.querySelector('#cm-').onclick=()=>{ i.cook=Math.max(0,(i.cook||0)-1)||null; i.notified=false; save(); render(); };
-    cf2.querySelector('#cm+').onclick=()=>{ i.cook=(i.cook||0)+1; i.notified=false; save(); render(); };
+    cf2.querySelector('#ckm').onclick=()=>{ i.cook=Math.max(0,(i.cook||0)-1)||null; i.notified=false; save(); render(); };
+    cf2.querySelector('#ckp').onclick=()=>{ i.cook=(i.cook||0)+1; i.notified=false; save(); render(); };
     sh.appendChild(cf2);
 
     const qf=el('<div class="field"><label>Количество</label><div class="stepper"><button id="m">−</button><span class="v" id="v"></span><button id="p">+</button></div></div>');
@@ -933,8 +1388,8 @@ function renderSheet(){
     if(d) d.mods.forEach(g=>{
       const f=el(`<div class="field"><label>${esc(g.name)}</label><div class="chips"></div></div>`);
       g.options.forEach(op=>{
-        const b=el(`<button class="chip ${i.mods[g.name]===op.label?'on':''}">${esc(op.label)}${op.cook?`<span class="chip-t">${op.cook}м</span>`:''}</button>`);
-        b.onclick=()=>{ i.mods[g.name]=op.label; i.cook=cookMinutes(d,i.mods); i.notified=false; save(); render(); };
+        const b=el(`<button class="chip ${i.mods[g.name]===op.label?'on':''}">${esc(op.label)}${op.cook?`<span class="chip-t">${op.cook}м</span>`:''}${op.price!=null?`<span class="chip-t">${money(op.price)} ₸</span>`:''}</button>`);
+        b.onclick=()=>{ i.mods[g.name]=op.label; i.cook=cookMinutes(d,i.mods); i.price=dishPrice(d,i.mods); i.notified=false; save(); render(); };
         f.querySelector('.chips').appendChild(b);
       });
       sh.appendChild(f);
@@ -976,7 +1431,8 @@ function renderSheet(){
 
   else if(t==='close'){
     const o=order(S.activeTable);
-    sh.appendChild(el(`<h2>Закрытие стола ${esc(o.table)}</h2><div class="sh-sub">${money(total(o))} ₸ · ${o.guests} гост. · ${mmss(Date.now()-o.openedAt)}</div>`));
+    const svcC=serviceAmount(o);
+    sh.appendChild(el(`<h2>Закрытие стола ${esc(o.table)}</h2><div class="sh-sub">${money(subtotal(o))} ₸${svcC?' + сервис '+money(svcC)+' = '+money(total(o)):''} ₸ · ${o.guests} гост. · ${mmss(Date.now()-o.openedAt)}</div>`));
     const undel=o.items.filter(i=>!i.delivered).length;
     if(undel) sh.appendChild(el(`<div class="field" style="color:#E0847C;font-size:13px">Не отмечено отданными: ${undel} поз.</div>`));
     const rows=[['precheck','Пречек распечатан и отдан'],['paid','Гость оплатил'],['cleared','Стол убран']];

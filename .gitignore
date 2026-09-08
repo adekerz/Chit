@@ -1,0 +1,15 @@
+# Внутренние исходники данных ресторана — НЕ публиковать (репо деплоится на публичный Vercel)
+*.pdf
+*.xlsx
+Пособие для официантов.xlsx
+parse_pdf.py
+CLAUDE.md
+
+# dev / временные артефакты
+node_modules/
+package-lock.json
+_*.js
+_*.txt
+_*.py
+_pages/
+*.md.tmp
