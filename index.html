@@ -161,6 +161,21 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
 .tag.time{background:var(--bg3);color:#9AA3B0;font-family:var(--mono)}
 .chip-t{font-family:var(--mono);font-size:10.5px;opacity:.62;margin-left:6px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--fg);color:var(--bg);padding:11px 18px;border-radius:22px;font-size:13.5px;font-weight:600;z-index:80;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+
+/* --- подтверждение пробития: стол + что именно пробито --- */
+.punchcard{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--bg2);border:1px solid var(--busy);border-radius:12px;padding:12px 16px;z-index:81;box-shadow:0 10px 30px rgba(0,0,0,.55);max-width:min(92vw,360px);cursor:pointer}
+.punchcard .pc-h{font-size:12.5px;font-weight:600;color:#7FBF9A;letter-spacing:.02em;margin-bottom:7px}
+.punchcard .pc-row{display:flex;gap:8px;font-size:13.5px;color:var(--fg);padding:3px 0;text-decoration:line-through;text-decoration-color:var(--muted);opacity:.82}
+.punchcard .pc-q{font-family:var(--mono);color:var(--muted);flex-shrink:0}
+
+/* --- пейринг вина к блюду --- */
+.winetag{background:none;border:none;color:#D8B463;font-size:15px;padding:4px 6px;cursor:pointer;flex-shrink:0}
+.flag.wine{border-color:#8C6A2A;color:#D8B463}
+.winemore{color:#D8B463;text-decoration:underline;cursor:pointer;font-size:12.5px}
+.pair-block{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:11px 12px;margin-bottom:9px}
+.pair-label{font-size:10.5px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:5px;font-weight:600}
+.pair-name{font-size:14px;font-weight:600;color:#D8B463;margin-bottom:4px}
+.pair-why{font-size:12.5px;color:var(--muted);line-height:1.5}
 </style>
 </head>
 <body>
@@ -596,6 +611,192 @@ Undurraga Altazor, Valle del Maipo 2016 | 65000 | Майпо · Каберне �
 Susana Balbo Brioso 2021 | 75000 | Мендоса · Каберне Совиньон, Мальбек, Каберне Фран
 Susana Balbo Crios Malbec 2022 | 27000 | Мендоса · Мальбек`;
 
+/* ---------- пейринг вина к блюдам (Пособие для официантов) ----------
+   # блюдо (имя должно совпадать с меню) · ~ по бокалам · * бутылочный вариант (0-2, повторяемо)
+   после | — «почему», можно опустить */
+const PAIRING_TEXT = `# Буррата микс томатов
+~Tholomies Cremant de Limoux Brut (Франция) | Пузырьки и свежесть Кремана освежают рецепторы после жирных сливок бурраты и подчеркивают сочность томатов.
+*Serena Prosecco Rose Brut (Италия) | Ягодные тона и игристые пузырьки прекрасно сочетаются с томатами и пряным маслом.
+*Llopart Reserva Brut (Испания) | Традиционный метод производства придаёт текстурность, которая идеально режет сливочную структуру сыра.
+
+# Вителло тонато
+~Loire Proprietes 360 Pinot Noir (Франция) | Идеальное легкое красное для телятины, которое не спорит с тунцовым соусом.
+*Domaine Faiveley Bourgogne Pinot Noir (Франция) | Шелковистые танины и ягодная кислотность красиво огибают насыщенный соус из тунца и каперсов.
+*Benanti Etna Rosso DOC (Италия) | Элегантное минеральное красное с вулкана Этна сглаживает жирность соуса и подчеркивает нежность телятины.
+
+# Жареный халуми
+~Serena Prosecco Treviso Extra Dry (Италия) | Кислотность и пузырьки смывают солоноватую жирность жареного сыра, подчеркивая медовый акцент.
+*Les Roches Blanches Vouvray (Франция) | Полусухой Вувре гармонирует с медом и тимьяном, не теряясь на фоне соленого халуми.
+*Villiera Jasmine (ЮАР) | Ароматное, слегка сладковатое вино подчеркивает пряные тимьяново-медовые нюансы.
+
+# Креветки на хоспере
+~Loire Proprietes 360 Chardonnay (Франция) | Умеренно округлое Шардоне подчеркивает сладковатое мясо морепродуктов и дымный тон хоспера.
+*Nals Magreid "Stein" Sauvignon Blanc (Италия) | Альпийская свежесть и тона сочных цитрусов подчеркивают гриль-ноты и чистоту вкуса креветок.
+*Chateau Saint-Robert Cuvee Poncet-Deville (Франция) | Выдержанный Бордо Блан обладает телом и маслянистостью, идеальными под корочку от хоспера.
+
+# Маринованные оливки, шичими тогараши
+~Cantina Tollo "Gufo" Pinot Grigio (Италия) | Нейтральная кислотность и лёгкие фруктовые тона сглаживают остринку шичими тогараши и маслянистость оливок.
+*La Mariniere Muscadet Sevre et Main (Франция) | Минеральность и хрустящая кислотность Мюскаде отлично балансируют солоноватость и маслянистость оливок.
+*Serena Prosecco Treviso Extra Dry (Италия) | Легкие пузырьки и тонкая остаточная сладость гасят пряные ноты азиатских специй.
+
+# Паштет из куриной печени
+~Loire Proprietes 360 Pinot Noir (Франция) | Легкий Пино Нуар с мягкими танинами не перебивает нежную печень и поддерживает пикантно-сладковатый соус.
+*Feu Rose d'Anjou (Франция) | Полусухое розе прекрасно оттеняет варенье из кимчи и подчеркивает насыщенность субпродукта.
+*Les Roches Blanches Vouvray (Франция) | Медово-яблочный профиль Шенена Блан создает классический контрастный дуэт с печеночным паштетом.
+
+# Сет Мезе
+~Serena Prosecco Treviso Extra Dry (Италия) | Универсальный вариант: игристое очищает рецепторы между абсолютно разными по вкусу закусками.
+*Mateus Rose Original (Португалия) | Легкое, чуть шипучее розе подстраивается под разнообразие намазок и закусок сета.
+*Cape Dream Chenin Blanc (ЮАР) | Сочные тропические тона и мягкая кислотность сочетаются с пряными восточными соусами.
+
+# Сыр Лабане
+~Amalinda Sauvignon Blanc (Испания) | Яркая кислотность легко справляется со специфической горчинкой артишоков и кислинкой лабане.
+*Curly Sheep Sauvignon Blanc (Новая Зеландия) | Травянистые и цитрусовые ноты новозеландского стиля резонируют со вкусом артишоков на гриле.
+*Domaene Gobelsburg Gruner Veltliner (Австрия) | Перечные и минеральные тона Грюнера — каноничное сочетание с артишоками и ферментированным сыром.
+
+# Томаты ким чи, кунжут ким чи
+~Amalinda Sauvignon Blanc (Испания) | Яркая травянистая кислотность помогает справляться с томатной кислотой и пикантностью заправки.
+*Devil's Rock Riesling (Германия) | Классический полусухой Рислинг с легким остаточным сахаром идеален для смягчения остроты кимчи.
+*Domaene Gobelsburg Riesling (Австрия) | Высокая сочная кислотность и сочный фруктовый профиль гармонизируют соленые и ферментированные оттенки.
+
+# Хумус
+~Cantina Tollo "Gufo" Pinot Grigio (Италия) | Нейтральное белое вино уравновешивает плотную структуру нута и кунжутной пасты.
+*Varvaglione "12 e Mezzo" Bianco Puglia Bio (Италия) | Свежее южное вино с хорошей кислотностью освежает после пряных специй и нута.
+*Bruno Murciano Las Blancas (Испания) | Объёмное белое с хорошей текстурой гармонирует с плотной консистенцией хумуса.
+
+# Греческий салат
+~Cantina Tollo "Gufo" Pinot Grigio (Италия) | Легкое и свежее пино гриджо идеально под хрустящие овощи и фета.
+*Cantina Tollo "Colle Cavalieri" Trebbiano d'Abruzzo (Италия) | Традиционный итальянец с высокой кислотностью режет солоноватость сыра и оливкового масла.
+*Mateus Branco (Португалия) | Легкое цитрусовое вино с приятным свежим финишем для летних овощей.
+
+# Зелёный салат с креветками
+~Amalinda Sauvignon Blanc (Испания) | Травянистые оттенки Совиньона подчеркивают свежесть зелени и сладость морепродуктов.
+*Curly Sheep Sauvignon Blanc (Новая Зеландия) | Яркий новозеландский акцент (маракуйя, лайм) заменяет салатную заправку.
+*Dog Point Vineyard Sauvignon Blanc (Новая Зеландия) | Сложный, минеральный Совиньон создает премиальную пару со свежей зеленью и креветками.
+
+# Салат из томатов
+~Serena Prosecco Treviso Extra Dry (Италия) | Игра пузырьков и легкая сладость нивелируют специфическую кислотность мусса из шубата.
+*Benanti Etna Bianco DOC (Италия) | Вулканическое белое вино со сложной минеральностью справляется и с травянистым песто, и со сложным муссом.
+*Llopart Reserva Brut Rose (Испания) | Розовое игристое отлично справляется со сливочной кислинкой шубата и спелостью томатов.
+
+# Салат с тёплым цыплёнком и пармезаном
+~Loire Proprietes 360 Chardonnay (Франция) | Мягкий сорт Шардоне отлично дополняет тёплое белое мясо и выдержанный сыр.
+*Nals Magreid "Magred" Chardonnay (Италия) | Объёмное вино с балансом свежести и кремовости к пармезановой заправке.
+*Domaine Faiveley Bourgogne Chardonnay (Франция) | Классическое бургундское вино подчеркивает ореховые ноты пармезана и нежность цыпленка.
+
+# Салат с хрустящими баклажанами
+~Amalinda Sauvignon Blanc (Испания) | Кислотность режет фритюрную корочку и сбалансирует кисло-сладкий соус.
+*Susana Balbo Crios Torrontes (Аргентина) | Парфюмерный и яркий Торронтес гениально работает с азиатскими сладкими соусами.
+*Llopart Reserva Brut (Испания) | Игристые пузырьки счищают масло фритюра с неба, оставляя хрустящее послевкусие.
+
+# Бедро цыплёнка
+~Sun Gate Zinfandel (США) | Демонстрирует джемовую сочность, отлично подходящую под пикантный орехово-перечный соус ромеско.
+*Bruno Murciano Parajes del Cabriel (Испания) | Испанский сорт Бобаль органично сочетается с исконно испанским соусом ромеско.
+*Terra Linda Garnacha (Испания) | Сочная Гарнача с тонами запеченной ягоды гармонирует с запеченной птицей.
+
+# Бефстроганов из говядины
+~Cantina Tollo "Gufo" Merlot (Италия) | Мягкие танины Мерло прекрасно дружат с тушеной говядиной и сливочно-грибным соусом.
+*Chateau Timberlay Bordeaux rouge (Франция) | Классический сбор Мерло и Каберне дает баланс под насыщенное пюре и говядину.
+*Masi Campofiorin (Италия) | Округлое, слегка пряное красное подчёркивает глубокий вкус белых грибов.
+
+# Говяжьи щёки
+~Sun Gate Zinfandel (США) | Плотное вино с ярко выраженными сладковато-пряными нотами к долго тушенному мясу.
+*Varvaglione "MOI" Primitivo di Manduria (Италия) | Насыщенный Примитиво вторит глубокому сладкому соусу из портвейна.
+*Bodegas La Horra Corimbo (Испания) | Мощный Темпранильо из Рибера-дель-Дуэро легко справится с коллагеновой текстурой щёчек.
+
+# Казаречче с соусом Песто и страчателлой
+~Cantina Tollo "Gufo" Pinot Grigio (Италия) | Легкое нейтральное вино под свежесть базилика и нежность сыра.
+*Gitton Sancerre Blanc l'Amiral (Франция) | Травянисто-цитрусовый профиль Сансера — идеальная компания для соуса из базилика.
+*Tenute San Sisto Massaccio Verdicchio (Италия) | Структурное итальянское белое вино с ореховым финишем к кедровым орехам в песто.
+
+# Куриное филе
+~Loire Proprietes 360 Chardonnay (Франция) | Маслянистые ноты Шардоне вторят сливочному пюре, а кислотность освежает шпинат.
+*Domaine Faiveley Bourgogne Chardonnay (Франция) | Выдержка дает тона сливочного масла, прекрасно подходящие под насыщенный мясной соус Жу.
+*Nals Magreid "Magred" Chardonnay (Италия) | Структурное белое вино для любителей плотных белых пар с птицей.
+
+# Лингвини с креветками и лососем
+~Tholomies Cremant de Limoux Brut (Франция) | Игристое прекрасно очищает нёбо от сладковато-перечного соуса и жира лосося.
+*Nals Magreid "Magred" Chardonnay (Италия) | Выразительное белое вино под плотную пасту с морепродуктами.
+*Llopart Reserva Brut Rose (Испания) | Ягодный тон розового игристого подчеркивает цвет и вкус соуса из печеного перца и лосося.
+
+# Лосось с соусом берблан
+~Loire Proprietes 360 Chardonnay (Франция) | Классический сливочный соус Бер-Блан требует маслянистой структуры Шардоне.
+*Avignonesi Il Marzocco Chardonnay (Италия) | Богатый выдержанный вкус вина уравновешивает жирность лосося и сливочного соуса.
+*Chateau Saint-Robert Cuvee Poncet-Deville (Франция) | Плотный белый Бордо справляется с пикантностью кунжута и томатов кимчи.
+
+# Орзо с мини кальмарами и хариссой
+~Amalinda Sauvignon Blanc (Испания) | Хрустящая кислотность затушевывает пикантную остроту тунисской пасты харисса.
+*Susana Balbo Crios Torrontes (Аргентина) | Яркий ароматический профиль сглаживает острые специи и оттеняет кальмаров.
+*Undurraga Terroir Hunter Sauvignon Blanc (Чили) | Концентрированный морской Совиньон гармонизирует со специями и морепродуктами.
+
+# Паккери с томатами и бурраттой
+~Loire Proprietes 360 Pinot Noir (Франция) | Легкое красное не перебивает молочный вкус бурраты и гармонирует с запеченными томатами.
+*Cantina Tollo "Colle Cavalieri" Montepulciano d'Abruzzo (Италия) | Каноничная итальянская пара к пасте с томатным соусом.
+*Benanti Etna Rosso DOC (Италия) | Свежая вулканическая кислотность идеально балансирует сливочность бурраты.
+
+# Ризотто с белыми грибами и трюфелем
+~Loire Proprietes 360 Pinot Noir (Франция) | Пино Нуар и трюфель — одно из самых гармоничных парных сочетаний в мире.
+*Bertani Secco (Италия) | Выдержанное северно-итальянское вино с тонами сухих трав и подлеска к трюфельному аромату.
+*Domaine Faiveley Bourgogne Pinot Noir (Франция) | Дополняет лесные оттенки белых грибов своей изысканной ягодной структурой.
+
+# Ризотто с креветками
+~Loire Proprietes 360 Chardonnay (Франция) | Сочетает сливочность для ризотто и страчателлы со свежестью для креветок.
+*Nals Magreid "Stein" Sauvignon Blanc (Италия) | Яркая кислотность подрезает жирность ризотто и нейтрализует горчинку артишока.
+*Domaine Faiveley Bourgogne Chardonnay (Франция) | Элегантное бургундское вино подчеркивает нежную текстуру страчателлы и креветки.
+
+# Сибас аква пацца
+~Cantina Tollo "Gufo" Pinot Grigio (Италия) | Итальянская классика для рыбных блюд в сочном томатном бульоне.
+*Tenute San Sisto Massaccio Verdicchio (Италия) | Плотное Вердиккио справляется с яркими оливками, томатами и каперсами в бульоне.
+*Benanti Etna Bianco DOC (Италия) | Вулканическое вино выгодно подчеркивает солоноватые тона оливок и нежность рыбы.
+
+# Утиная ножка конфи
+~Sun Gate Zinfandel (США) | Пряный сочный Зинфандель идеален для сладковатого батата, утиного жира и соуса Порто.
+*Domaene Gobelsburg Zweigelt (Австрия) | Вишневая кислотность Цвайгельта режет жирность утки конфи по аналогии со свежими ягодами.
+*Masi Campofiorin (Италия) | Подвяленный сорт винограда дает бархатистую сладость к карамелизированным яблокам.
+
+# Брокколи на хоспере
+~Loire Proprietes 360 Pinot Noir (Франция) | Легкий ягодный профиль компенсирует сладковатую тягучесть финикового крема.
+*Domaene Gobelsburg Zweigelt (Австрия) | Сочный австрийский сорт прекрасно дружит с овощами-гриль и финиковыми нотами.
+*Bruno Murciano Parajes del Cabriel (Испания) | Пряный шелковистый вкус оттеняет обжарку брокколи и сладкий соус.
+
+# Бургер из говядины
+~Sun Gate Zinfandel (США) | Американский подход: Зинфандель идеален для бургеров со сложными сладковато-острыми соусами.
+*Sun Gate Cabernet Sauvignon (США) | Классический плотный Каберне под говяжью котлету и насыщенные заправки.
+*Varvaglione "MOI" Primitivo di Manduria (Италия) | Бархатистый и сочный Примитиво подчеркнет пряный вкус варенья из томатов кимчи.
+
+# Говяжье ребро (Шорт риб)
+~Sun Gate Zinfandel (США) | Плотное вино сочетается с волокнистой, насыщенной структурой длительно томленого ребра.
+*Varvaglione "MOI" Primitivo di Manduria (Италия) | Пряно-джемовый профиль совпадает со сладковатой корочкой запеченного ребра.
+*TORBRECK The Steading (Австралия) | Сочный бленд GSM (Гренаш, Шираз, Мурведр) дает нужную силу для жирного мяса на кости.
+
+# Дорадо целиком на хоспере
+~Cantina Tollo "Gufo" Pinot Grigio (Италия) | Не перегружает белое мясо дорадо с кислинкой каперсов.
+*Tenute San Sisto Massaccio Verdicchio (Италия) | Соленоватый финиш вина отлично подходит под белую рыбу на углях.
+*Dog Point Vineyard Sauvignon Blanc (Новая Зеландия) | Выразительная свежесть под кислые и травяные нюансы маринада.
+
+# Рибай
+~Sun Gate Zinfandel (США) | Выраженные танины и сочный профиль легко справляются с высокой мраморностью и жирностью Рибая.
+*TORBRECK Woodcutter's Shiraz (Австралия) | Мощный, перечный, яркий Шираз — абсолютная классика под сочный жирный стейк.
+*Bodegas La Horra Corimbo (Испания) | Танинное и глубокое вино с хорошей дубовой выдержкой под мясной дымок.
+
+# Сибас целиком на хоспере
+~Cantina Tollo "Gufo" Pinot Grigio (Италия) | Легкое и понятное белое под лимонно-каперсовую заправку.
+*Gitton Sancerre Blanc l'Amiral (Франция) | Минеральность Сансера красиво обыгрывает каперсы и запеченную морскую рыбу.
+*Undurraga Terroir Hunter Sauvignon Blanc (Чили) | Яркий цитрусовый профиль заменяет дополнительную дольку лимона к рыбе.
+
+# Нью-Йорк (Стриплойн)
+~Sun Gate Zinfandel (США) | Выразительная живая кислотность обновляет рецепторы после насыщенного мяса с дымком от хоспера.
+
+# Тендерлойн (Филе-миньон)
+~Loire Proprietes 360 Pinot Noir (Франция) | Нежному и нежирному филе-миньону нужно мягкое вино без агрессивных танинов.
+*Domaine Faiveley Bourgogne Pinot Noir (Франция) | Бархатистый бургундский Пино подчеркивает деликатную текстуру вырезки.
+*Petit Manou Medoc (Франция) | Сдержанный классический Бордо для любителей более строгих пар с постным мясом.
+
+# Цыплёнок на хоспере
+~Loire Proprietes 360 Chardonnay (Франция) | Полнотелое белое сдерживает суховатость грудки и сочетается с дымной корочкой.
+*Varvaglione "12 e Mezzo" Bianco Puglia Bio (Италия) | Легкое сочное вино, не спорящее с деликатной птицей с гриля.
+*Chateau Timberlay Bordeaux rouge (Франция) | Вариант для любителей красного: мягкие танины под зажаристую корочку цыпленка.`;
+
 /* ---------- state ---------- */
 let S = {
   screen:'floor', activeTable:null, activeGuest:1,
@@ -606,6 +807,7 @@ let S = {
 };
 let menu = {cats:[], dishes:[]};
 let wines = [];
+let pairings = {};
 
 /* ---------- menu parsing ---------- */
 function slug(s){ return s.toLowerCase().replace(/[^a-zа-яё0-9]+/gi,'-'); }
@@ -676,6 +878,30 @@ function parseWine(text){
   });
   return out;
 }
+// пейринг блюдо → вино: # блюдо, ~ по бокалам, * бутылочный вариант (можно 0-2); после | — «почему»
+function parsePairings(text){
+  const out={}; let cur=null;
+  text.split('\n').forEach(raw=>{
+    const line=raw.trim(); if(!line) return;
+    if(line.startsWith('# ')){
+      cur=slug(line.slice(2).trim());
+      out[cur]={glass:null,bottles:[]};
+      return;
+    }
+    if(!cur) return;
+    if(line.startsWith('~')||line.startsWith('*')){
+      const body=line.slice(1);
+      const pi=body.indexOf('|');
+      const name=(pi<0?body:body.slice(0,pi)).trim();
+      const why=(pi<0?'':body.slice(pi+1)).trim();
+      if(!name) return;
+      if(line.startsWith('~')) out[cur].glass={name,why};
+      else out[cur].bottles.push({name,why});
+    }
+  });
+  return out;
+}
+function pairingFor(dish){ return dish ? pairings[dish.id] : null; }
 
 /* ---------- search: substring OR subsequence ("кпч" -> капучино) ---------- */
 function textMatch(n,q){
@@ -835,6 +1061,7 @@ async function boot(){
   if(raw){ try{ Object.assign(S,JSON.parse(raw)); }catch(e){} }
   menu=parseMenu(S.menuText);
   wines=parseWine(WINE_CARD);
+  pairings=parsePairings(PAIRING_TEXT);
   render();
 }
 
@@ -861,15 +1088,24 @@ function addItem(d,guest,qty,mods,comment){
 }
 function punchAll(){
   const o=order(S.activeTable); if(!o) return;
-  const now=Date.now(); let n=0;
-  o.items.forEach(i=>{ if(!i.punchedAt){i.punchedAt=now;i.notified=false;n++;} });
-  save(); render(); if(n) toast('Пробито позиций: '+n);
+  const now=Date.now(); const just=[];
+  o.items.forEach(i=>{ if(!i.punchedAt){i.punchedAt=now;i.notified=false;just.push(i);} });
+  save(); render(); if(just.length) showPunchCard(o.table, just);
+}
+
+/* карточка-подтверждение: какой стол и что именно только что пробито */
+let punchCardT=null;
+function showPunchCard(table, items){
+  S.punchCard={table, items: items.map(i=>({name:i.name, qty:i.qty}))};
+  render();
+  clearTimeout(punchCardT);
+  punchCardT=setTimeout(()=>{S.punchCard=null;render();},3200);
 }
 
 /* ================= RENDER ================= */
 function render(){
   const tb=document.getElementById('topbar'), mn=document.getElementById('main'), bt=document.getElementById('bottom');
-  document.querySelectorAll('.scrim,.toast').forEach(e=>e.remove());
+  document.querySelectorAll('.scrim,.toast,.punchcard').forEach(e=>e.remove());
   if(S.screen==='floor') renderFloor(tb,mn,bt);
   else if(S.screen==='table') renderTable(tb,mn,bt);
   else if(S.screen==='menu') renderMenu(tb,mn,bt);
@@ -878,6 +1114,14 @@ function render(){
   else if(S.screen==='settings') renderSettings(tb,mn,bt);
   if(S.sheet) renderSheet();
   if(S.toast){ const t=document.createElement('div'); t.className='toast'; t.textContent=S.toast; document.body.appendChild(t); }
+  if(S.punchCard){
+    const pc=el(`<div class="punchcard">
+      <div class="pc-h">✓ Стол ${esc(S.punchCard.table)} — пробито</div>
+      ${S.punchCard.items.map(i=>`<div class="pc-row"><span class="pc-q">${i.qty}×</span><span>${esc(i.name)}</span></div>`).join('')}
+    </div>`);
+    pc.onclick=()=>{ clearTimeout(punchCardT); S.punchCard=null; render(); };
+    document.body.appendChild(pc);
+  }
 }
 function el(html){ const d=document.createElement('div'); d.innerHTML=html.trim(); return d.children.length===1 ? d.firstElementChild : d; }
 function esc(s){ const d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
@@ -1004,6 +1248,8 @@ function itemRow(i){
   const lateNoCook = i.punchedAt && !i.cook && !i.delivered && (now-i.punchedAt)>S.lateMin*60000;
   const cls = i.delivered?'done':(ready||lateNoCook?'late':(i.punchedAt?'punched':''));
   const mods=Object.entries(i.mods||{}).map(([k,v])=>`${esc(k)}: <b>${esc(v)}</b>`).join(' · ');
+  const dish=menu.dishes.find(x=>x.id===i.dishId);
+  const hasPairing = dish && (pairingFor(dish) || dish.wine);
   let tmr='';
   if(i.punchedAt && !i.delivered){
     if(r && ready) tmr=`<div class="tmr ready">ГОТОВО · ждёт ${mmss(now-r)}</div>`;
@@ -1020,14 +1266,17 @@ function itemRow(i){
     <div class="flags">
       <button class="flag ${i.punchedAt?'on':''}" data-a="p">П</button>
       <button class="flag ${i.delivered?'on':''}" data-a="d" ${i.punchedAt?'':'disabled'}>О</button>
+      ${hasPairing?'<button class="flag wine" data-a="w">🍷</button>':''}
     </div>
   </div>`);
   row.querySelector('.body').onclick=()=>{S.sheet={type:'item',itemId:i.id};render();};
   row.querySelector('[data-a="p"]').onclick=()=>{
-    if(i.punchedAt){i.punchedAt=null;i.delivered=false;i.notified=false;} else {i.punchedAt=Date.now();i.notified=false;}
-    save();render();
+    if(i.punchedAt){i.punchedAt=null;i.delivered=false;i.notified=false;save();render();}
+    else {i.punchedAt=Date.now();i.notified=false;const o=order(S.activeTable);save();render();showPunchCard(o.table,[i]);}
   };
   row.querySelector('[data-a="d"]').onclick=()=>{ i.delivered=!i.delivered; save(); render(); };
+  const wBtn=row.querySelector('[data-a="w"]');
+  if(wBtn) wBtn.onclick=()=>{ S.sheet={type:'pairing', dishId:i.dishId}; render(); };
   return row;
 }
 
@@ -1067,6 +1316,11 @@ function dishRow(d,showCrumb,allergenHit){
     <div class="dp">${d.price?money(d.price):''}</div>
   </div>`);
   if(ok) row.onclick=()=>pickDish(d);
+  if(pairingFor(d)){
+    const wbtn=el('<button class="winetag">🍷</button>');
+    wbtn.onclick=(e)=>{ e.stopPropagation(); S.sheet={type:'pairing', dishId:d.id}; render(); };
+    row.appendChild(wbtn);
+  }
   return row;
 }
 function renderMenuList(container){
@@ -1321,7 +1575,16 @@ function renderSheet(){
     const cm=cookMinutes(d,S.sheet.sel);
     const pr=dishPrice(d,S.sheet.sel);
     sh.appendChild(el(`<h2>${esc(d.name)}</h2><div class="sh-sub">${pr?money(pr)+' ₸ · ':''}${esc(d.cat)}${cm?' · готовится '+cm+' мин':''}</div>`));
-    if(d.wine) sh.appendChild(el(`<div class="wineinfo">🍷 ${esc(d.wine)}</div>`));
+    const pr2=pairingFor(d);
+    if(pr2){
+      const wBox=el(`<div class="wineinfo">🍷 ${esc(pr2.glass?pr2.glass.name:(d.wine||''))} <span class="winemore">${S.sheet.showPairing?'скрыть':'подробнее →'}</span></div>`);
+      wBox.querySelector('.winemore').onclick=()=>{ S.sheet.showPairing=!S.sheet.showPairing; render(); };
+      sh.appendChild(wBox);
+      if(S.sheet.showPairing){
+        if(pr2.glass&&pr2.glass.why) sh.appendChild(el(`<div class="pair-block"><div class="pair-label">Почему бокал</div><div class="pair-why">${esc(pr2.glass.why)}</div></div>`));
+        pr2.bottles.forEach((b,idx)=>sh.appendChild(el(`<div class="pair-block"><div class="pair-label">Бутылка${pr2.bottles.length>1?' · вариант '+(idx+1):''}</div><div class="pair-name">${esc(b.name)}</div>${b.why?`<div class="pair-why">${esc(b.why)}</div>`:''}</div>`)));
+      }
+    } else if(d.wine) sh.appendChild(el(`<div class="wineinfo">🍷 ${esc(d.wine)}</div>`));
     if(d.allergens&&d.allergens.length) sh.appendChild(el(`<div class="alginfo">⚠ Аллергены: ${esc(d.allergens.join(', '))}</div>`));
     d.mods.forEach(g=>{
       const f=el(`<div class="field"><label>${esc(g.name)}${g.required?'<span class="req">обязательно</span>':''}</label><div class="chips"></div></div>`);
@@ -1449,6 +1712,23 @@ function renderSheet(){
     acts.append(c,k); sh.appendChild(acts);
   }
 
+  else if(t==='pairing'){
+    const dish=menu.dishes.find(x=>x.id===S.sheet.dishId);
+    const p=dish?pairingFor(dish):null;
+    sh.appendChild(el(`<h2>🍷 ${esc(dish?dish.name:'')}</h2><div class="sh-sub">Что предложить к блюду</div>`));
+    if(p){
+      if(p.glass) sh.appendChild(el(`<div class="pair-block"><div class="pair-label">По бокалам</div><div class="pair-name">${esc(p.glass.name)}</div>${p.glass.why?`<div class="pair-why">${esc(p.glass.why)}</div>`:''}</div>`));
+      p.bottles.forEach((b,idx)=>sh.appendChild(el(`<div class="pair-block"><div class="pair-label">Бутылка${p.bottles.length>1?' · вариант '+(idx+1):''}</div><div class="pair-name">${esc(b.name)}</div>${b.why?`<div class="pair-why">${esc(b.why)}</div>`:''}</div>`)));
+    } else if(dish&&dish.wine){
+      sh.appendChild(el(`<div class="pair-block"><div class="pair-label">По бокалам</div><div class="pair-name">${esc(dish.wine)}</div></div>`));
+    } else {
+      sh.appendChild(el('<div class="hint" style="padding:20px 8px">Пейринг для этого блюда не задан</div>'));
+    }
+    const cl=el('<button class="btn ghost" style="width:100%">Готово</button>');
+    cl.onclick=()=>{S.sheet=null;render();};
+    sh.appendChild(cl);
+  }
+
   document.body.appendChild(sc);
 }
 
@@ -1466,9 +1746,20 @@ document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'){ unlockAudio(); checkReady(); render(); }
 });
 
-/* service worker (только на реальном хостинге) */
+/* service worker (только на реальном хостинге): автообновление без залипания
+   на старой версии — sw.js сам активируется сразу (skipWaiting/clients.claim),
+   а тут перезагружаем страницу в момент смены контроллера */
 if('serviceWorker' in navigator && location.protocol==='https:'){
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  navigator.serviceWorker.register('sw.js').then(reg=>{
+    setInterval(()=>reg.update().catch(()=>{}), 30*60*1000);
+    document.addEventListener('visibilitychange',()=>{
+      if(document.visibilityState==='visible') reg.update().catch(()=>{});
+    });
+  }).catch(()=>{});
+  let swRefreshed=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(swRefreshed) return; swRefreshed=true; location.reload();
+  });
 }
 
 boot();
