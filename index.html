@@ -85,6 +85,17 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
 .sumline b{color:var(--fg);font-size:15px}
 .sumline.nb{border-top:none;margin-top:0;padding-top:3px}
 
+/* menu drawer: выезжает снизу поверх стола, не занимая весь экран —
+   верх (список позиций стола) остаётся виден и живой */
+.menudrawer{position:fixed;left:0;right:0;bottom:0;z-index:55;background:var(--bg2);
+  border-top:1px solid var(--line);border-radius:14px 14px 0 0;
+  max-height:56vh;display:flex;flex-direction:column;
+  box-shadow:0 -10px 30px rgba(0,0,0,.5);padding:8px 14px calc(10px + env(safe-area-inset-bottom))}
+.md-handle{width:36px;height:4px;border-radius:3px;background:var(--line);margin:2px auto 10px}
+.md-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-size:15px;font-weight:600}
+.menudrawer .search{margin-bottom:8px;flex-shrink:0}
+.md-list{overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;min-height:0}
+
 /* menu */
 .search{width:100%;padding:12px 13px;background:var(--bg2);border:1px solid var(--line);border-radius:6px;color:var(--fg);font-size:15px;margin-bottom:10px}
 .search::placeholder{color:var(--muted)}
@@ -108,7 +119,7 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
 .crumb{font-size:11px;color:var(--muted);margin-top:2px}
 
 /* sheet */
-.scrim{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:flex-end}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:65;display:flex;align-items:flex-end}
 .sheet{width:100%;background:var(--bg2);border-radius:14px 14px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:88vh;overflow-y:auto}
 .sheet h2{margin:0 0 3px;font-size:17px;font-weight:600}
 .sheet .sh-sub{color:var(--muted);font-size:12.5px;margin-bottom:16px}
@@ -804,7 +815,7 @@ let S = {
   screen:'floor', activeTable:null, activeGuest:1,
   menuText:DEFAULT_MENU, tablesText:DEFAULT_TABLES,
   orders:{}, stop:{}, go:{}, limits:{},
-  query:'', openCats:{}, sheet:null, toast:null,
+  query:'', openCats:{}, sheet:null, toast:null, menuOpen:false,
   lateMin:12, serviceFee:10, sound:true, defaultCook:0, ready:[]
 };
 let menu = {cats:[], dishes:[]};
@@ -1079,7 +1090,7 @@ function toast(msg){
 function openTable(num,guests){
   S.orders[num]={table:num,guests,items:[],openedAt:Date.now(),status:'open',
     checks:{precheck:false,paid:false,cleared:false}};
-  S.activeTable=num; S.activeGuest=1; S.screen='table'; S.sheet=null; save(); render();
+  S.activeTable=num; S.activeGuest=1; S.screen='table'; S.sheet=null; S.menuOpen=false; save(); render();
 }
 function addItem(d,guest,qty,mods,comment){
   const o=order(S.activeTable); if(!o) return;
@@ -1107,13 +1118,13 @@ function showPunchCard(table, items){
 /* ================= RENDER ================= */
 function render(){
   const tb=document.getElementById('topbar'), mn=document.getElementById('main'), bt=document.getElementById('bottom');
-  document.querySelectorAll('.scrim,.toast,.punchcard').forEach(e=>e.remove());
+  document.querySelectorAll('.scrim,.toast,.punchcard,.menudrawer').forEach(e=>e.remove());
   if(S.screen==='floor') renderFloor(tb,mn,bt);
   else if(S.screen==='table') renderTable(tb,mn,bt);
-  else if(S.screen==='menu') renderMenu(tb,mn,bt);
   else if(S.screen==='stop') renderStop(tb,mn,bt);
   else if(S.screen==='wine') renderWine(tb,mn,bt);
   else if(S.screen==='settings') renderSettings(tb,mn,bt);
+  if(S.screen==='table' && S.menuOpen) renderMenuDrawer();
   if(S.sheet) renderSheet();
   if(S.toast){ const t=document.createElement('div'); t.className='toast'; t.textContent=S.toast; document.body.appendChild(t); }
   if(S.punchCard){
@@ -1147,7 +1158,7 @@ function renderFloor(tb,mn,bt){
     strip.appendChild(el(`<div class="rb-h">Готово — забрать (${rd.length})</div>`));
     rd.slice(0,8).forEach(({o,i,at})=>{
       const r=el(`<div class="rb-row"><span class="rb-t">${esc(o.table)}</span><span class="rb-n">${esc(i.name)}</span><span class="rb-w">${mmss(Date.now()-at)}</span></div>`);
-      r.onclick=()=>{S.activeTable=o.table;S.activeGuest='all';S.screen='table';render();};
+      r.onclick=()=>{S.activeTable=o.table;S.activeGuest='all';S.screen='table';S.menuOpen=false;render();};
       strip.appendChild(r);
     });
     mn.appendChild(strip);
@@ -1167,7 +1178,7 @@ function renderFloor(tb,mn,bt){
         ${rc?`<div class="badge rdy">${rc} готово</div>`:(up?`<div class="badge">${up}</div>`:'')}
       </div>`);
       cell.onclick=()=>{
-        if(o){ S.activeTable=num; S.activeGuest=1; S.screen='table'; render(); }
+        if(o){ S.activeTable=num; S.activeGuest=1; S.screen='table'; S.menuOpen=false; render(); }
         else { S.sheet={type:'open',table:num,guests:2}; render(); }
       };
       g.appendChild(cell);
@@ -1193,7 +1204,7 @@ function renderTable(tb,mn,bt){
   tb.innerHTML=`<button class="back" id="bk">‹ Зал</button>
     <h1>Стол ${esc(o.table)} <span class="sub">${o.guests} гост. · ${mmss(Date.now()-o.openedAt)}</span></h1>
     <button class="iconbtn" id="gplus">+гость</button>`;
-  tb.querySelector('#bk').onclick=()=>{S.screen='floor';render();};
+  tb.querySelector('#bk').onclick=()=>{S.screen='floor';S.menuOpen=false;render();};
   tb.querySelector('#gplus').onclick=()=>{o.guests++;save();render();};
 
   mn.innerHTML='';
@@ -1230,7 +1241,7 @@ function renderTable(tb,mn,bt){
 
   bt.innerHTML='';
   const addB=el('<button class="btn">+ Блюдо</button>');
-  addB.onclick=()=>{S.screen='menu';S.query='';render();};
+  addB.onclick=()=>{S.menuOpen=true;S.query='';render();};
   bt.appendChild(addB);
   if(up){
     const pb=el('<button class="btn green">Пробить всё</button>');
@@ -1282,25 +1293,26 @@ function itemRow(i){
   return row;
 }
 
-/* --- menu picker --- */
-function renderMenu(tb,mn,bt){
-  bt.style.display='flex';
-  tb.innerHTML=`<button class="back" id="bk">‹ Стол ${esc(S.activeTable)}</button>
-    <h1>Меню <span class="sub">→ Г${S.activeGuest==='all'?1:S.activeGuest}</span></h1>`;
-  tb.querySelector('#bk').onclick=()=>{S.screen='table';render();};
-
-  mn.innerHTML='';
+/* --- menu picker: выдвижная шторка снизу поверх стола, а не отдельный экран —
+   официант должен видеть список позиций стола (что пробито/новое), пока
+   выбирает блюдо, а не терять его на весь экран (см. CONTEXT.md) --- */
+function renderMenuDrawer(){
+  const wrap=el(`<div class="menudrawer">
+    <div class="md-handle"></div>
+    <div class="md-head">
+      <div>Меню <span class="sub">→ Г${S.activeGuest==='all'?1:S.activeGuest}</span></div>
+      <button class="smallbtn" id="md-close">Готово</button>
+    </div>
+  </div>`);
+  wrap.querySelector('#md-close').onclick=()=>{S.menuOpen=false;render();};
   const inp=el(`<input class="search" placeholder="Поиск: цез, кпч, стейк..." value="${esc(S.query)}">`);
   inp.oninput=e=>{S.query=e.target.value;renderMenuList(list);};
-  mn.appendChild(inp);
-  const list=el('<div></div>'); mn.appendChild(list);
+  wrap.appendChild(inp);
+  const list=el('<div class="md-list"></div>');
+  wrap.appendChild(list);
   renderMenuList(list);
+  document.body.appendChild(wrap);
   if(S.query){ setTimeout(()=>{inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);},0); }
-
-  bt.innerHTML='';
-  const done=el('<button class="btn">Готово</button>');
-  done.onclick=()=>{S.screen='table';render();};
-  bt.appendChild(done);
 }
 function dishRow(d,showCrumb,allergenHit){
   const r=remaining(d.id), stopped=S.stop[d.id], ok=dishAvailable(d);
@@ -1739,7 +1751,7 @@ let lastTick=Date.now();
 setInterval(()=>{
   const gap = Date.now()-lastTick; lastTick=Date.now();
   const changed = checkReady();
-  if(S.sheet && !changed) return;
+  if((S.sheet || S.menuOpen) && !changed) return;
   // gap > 20с значит приложение было свернуто — обновляем всё
   if(changed || gap>20000 || S.screen==='floor' || S.screen==='table') render();
 },1000);
