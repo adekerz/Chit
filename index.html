@@ -75,6 +75,8 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
 .item .det b{font-weight:600;color:#7A4A12}
 .item .tmr{font-family:var(--mono);font-size:11px;margin-top:4px;color:var(--ink-dim)}
 .item .tmr.late{color:var(--alert);font-weight:600}
+.item.sent .nm{text-decoration:line-through;text-decoration-thickness:1.5px;text-decoration-color:var(--ink-dim)}
+.item.sent:not(.late) .nm{color:var(--ink-dim)}
 .flags{display:flex;flex-direction:column;gap:5px;flex-shrink:0}
 .flag{width:34px;height:26px;border-radius:4px;border:1.5px solid #C9C2B0;background:transparent;color:var(--ink-dim);font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .flag.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}
@@ -1256,7 +1258,7 @@ function itemRow(i){
     else if(r) tmr=`<div class="tmr">готово через ${mmss(r-now)}</div>`;
     else tmr=`<div class="tmr ${lateNoCook?'late':''}">на кухне ${mmss(now-i.punchedAt)}</div>`;
   }
-  const row=el(`<div class="item ${cls}" data-iid="${i.id}">
+  const row=el(`<div class="item ${cls} ${i.punchedAt?'sent':''}" data-iid="${i.id}">
     <div class="body">
       <div class="nm"><span class="qty">${i.qty}×</span> ${esc(i.name)}${i.cook?`<span class="ct">${i.cook}м</span>`:''}</div>
       ${mods?`<div class="det">${mods}</div>`:''}
