@@ -99,10 +99,17 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
 /* menu */
 .search{width:100%;padding:12px 13px;background:var(--bg2);border:1px solid var(--line);border-radius:6px;color:var(--fg);font-size:15px;margin-bottom:10px}
 .search::placeholder{color:var(--muted)}
-.cat{margin-bottom:6px}
-.cat>.head{padding:11px 12px;background:var(--bg2);border-radius:5px;font-size:14px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
-.cat>.head .chev{color:var(--muted);font-size:12px}
-.sub{padding:8px 0 2px 2px}
+.searchwrap{position:relative;margin-bottom:10px}
+.searchwrap .search{margin-bottom:0;padding-right:38px}
+.searchclear{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:26px;height:26px;border-radius:50%;border:none;background:var(--bg3);color:var(--muted);font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.searchclear:active{background:var(--line)}
+.cat{margin-bottom:8px}
+.cat>.head{padding:13px 14px;background:var(--bg2);border-left:3px solid var(--fg);border-radius:6px;font-size:15px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;letter-spacing:.01em}
+.cat>.head .chev{color:var(--muted);font-size:13px}
+.subhead{padding:10px 12px;margin:7px 0 5px;background:var(--bg3);border-radius:5px;font-size:13px;font-weight:600;color:var(--fg);cursor:pointer;display:flex;justify-content:space-between;align-items:center;letter-spacing:.02em}
+.subhead:active{background:var(--bg2)}
+.subhead .chev{color:var(--muted);font-size:11px}
+.sub{padding:2px 0 2px 2px}
 .sub>h4{font-size:11.5px;color:var(--muted);margin:6px 2px 5px;font-weight:500;letter-spacing:.03em}
 .dish{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--line);cursor:pointer}
 .dish:active{background:var(--bg2)}
@@ -176,8 +183,8 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--fg);color:var(--bg);padding:11px 18px;border-radius:22px;font-size:13.5px;font-weight:600;z-index:80;box-shadow:0 6px 20px rgba(0,0,0,.5)}
 
 /* --- подтверждение пробития: стол + что именно пробито --- */
-.punchcard{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--bg2);border:1px solid var(--busy);border-radius:12px;padding:12px 16px;z-index:81;box-shadow:0 10px 30px rgba(0,0,0,.55);max-width:min(92vw,360px);cursor:pointer}
-.punchcard .pc-h{font-size:12.5px;font-weight:600;color:#7FBF9A;letter-spacing:.02em;margin-bottom:7px}
+.punchcard{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--bg2);border:1px solid var(--busy);border-radius:12px;padding:12px 16px;z-index:81;box-shadow:0 10px 30px rgba(0,0,0,.55);max-width:min(92vw,360px);max-height:40vh;overflow-y:auto;-webkit-overflow-scrolling:touch;cursor:pointer}
+.punchcard .pc-h{position:sticky;top:-12px;background:var(--bg2);padding:12px 0 7px;margin:-12px 0 0;font-size:12.5px;font-weight:600;color:#7FBF9A;letter-spacing:.02em}
 .punchcard .pc-row{display:flex;gap:8px;font-size:13.5px;color:var(--fg);padding:3px 0;text-decoration:line-through;text-decoration-color:var(--muted);opacity:.82}
 .punchcard .pc-q{font-family:var(--mono);color:var(--muted);flex-shrink:0}
 
@@ -215,7 +222,7 @@ const store = {
 
 /* ---------- default menu (replace in settings) ---------- */
 const DEFAULT_MENU = `# Кухня
-## Салаты и закуски
+## Закуски
 Маринованные оливки, шичими тогараши | 4800 | ~4 | @кунжут | $Gufo Pinot Grigio (бокал)
 Томаты ким чи, кунжут ким чи | 3300 | ~4 | @кунжут, арахис, соя, цитрусовые | $Amalinda Sauvignon Blanc (бокал)
 Буррата микс томатов | 5700 | ~5 | @молоко | $Tholomies Cremant (бокал)
@@ -226,6 +233,7 @@ const DEFAULT_MENU = `# Кухня
 Сет Мезе | 4500 | ~8 | @кунжут, молоко, цитрусовые, орехи, арахис, соя, глютен | $Serena Prosecco (бокал)
 Жареный халуми | 3600 | ~6 | @молоко, мёд, кунжут, арахис, соя, цитрусовые | $Serena Prosecco (бокал)
 Креветки на хоспере | 5700 | ~10 | @ракообразные, глютен, цитрусовые, молоко | $Loire Chardonnay (бокал)
+## Салаты
 Салат из томатов | 3800 | ~6 | @орехи, молоко, цитрусовые | $Serena Prosecco (бокал)
 Салат с тёплым цыплёнком и пармезаном | 5600 | ~7 | @яйцо, молоко, рыба, горчица | $Loire Chardonnay (бокал)
 Зелёный салат с креветками | 4800 | ~7 | @сельдерей, соя, цитрусовые, глютен, ракообразные, молоко | $Amalinda Sauvignon Blanc (бокал)
@@ -815,7 +823,7 @@ let S = {
   screen:'floor', activeTable:null, activeGuest:1,
   menuText:DEFAULT_MENU, tablesText:DEFAULT_TABLES,
   orders:{}, stop:{}, go:{}, limits:{},
-  query:'', openCats:{}, sheet:null, toast:null, menuOpen:false,
+  query:'', openCats:{}, openSubs:{}, sheet:null, toast:null, menuOpen:false,
   lateMin:12, serviceFee:10, sound:true, defaultCook:0, ready:[]
 };
 let menu = {cats:[], dishes:[]};
@@ -1103,7 +1111,8 @@ function punchAll(){
   const o=order(S.activeTable); if(!o) return;
   const now=Date.now(); const just=[];
   o.items.forEach(i=>{ if(!i.punchedAt){i.punchedAt=now;i.notified=false;just.push(i);} });
-  save(); render(); if(just.length) showPunchCard(o.table, just);
+  save();
+  if(just.length) showPunchCard(o.table, just); else render();
 }
 
 /* карточка-подтверждение: какой стол и что именно только что пробито */
@@ -1138,6 +1147,17 @@ function render(){
 }
 function el(html){ const d=document.createElement('div'); d.innerHTML=html.trim(); return d.children.length===1 ? d.firstElementChild : d; }
 function esc(s){ const d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+/* поисковая строка с кнопкой «×» для быстрой очистки — переиспользуется в меню/стопах/вине */
+function searchBox(placeholder, value, onChange){
+  const wrap=el(`<div class="searchwrap">
+    <input class="search" placeholder="${esc(placeholder)}" value="${esc(value)}">
+    <button class="searchclear" type="button" ${value?'':'style="display:none"'}>×</button>
+  </div>`);
+  const inp=wrap.querySelector('input'), clr=wrap.querySelector('.searchclear');
+  inp.oninput=()=>{ clr.style.display=inp.value?'':'none'; onChange(inp.value); };
+  clr.onclick=()=>{ inp.value=''; clr.style.display='none'; onChange(''); inp.focus(); };
+  return wrap;
+}
 
 /* --- floor --- */
 function renderFloor(tb,mn,bt){
@@ -1157,7 +1177,7 @@ function renderFloor(tb,mn,bt){
     const strip=el('<div class="readybar"></div>');
     strip.appendChild(el(`<div class="rb-h">Готово — забрать (${rd.length})</div>`));
     rd.slice(0,8).forEach(({o,i,at})=>{
-      const r=el(`<div class="rb-row"><span class="rb-t">${esc(o.table)}</span><span class="rb-n">${esc(i.name)}</span><span class="rb-w">${mmss(Date.now()-at)}</span></div>`);
+      const r=el(`<div class="rb-row" data-at="${at}"><span class="rb-t">${esc(o.table)}</span><span class="rb-n">${esc(i.name)}</span><span class="rb-w">${mmss(Date.now()-at)}</span></div>`);
       r.onclick=()=>{S.activeTable=o.table;S.activeGuest='all';S.screen='table';S.menuOpen=false;render();};
       strip.appendChild(r);
     });
@@ -1169,7 +1189,7 @@ function renderFloor(tb,mn,bt){
     const g=el('<div class="grid"></div>');
     z.tables.forEach(num=>{
       const o=order(num), st=orderStatus(o), up=unpunched(o), rc=readyCount(o);
-      const cell=el(`<div class="tcell ${st==='free'?'':st}">
+      const cell=el(`<div class="tcell ${st==='free'?'':st}" data-table="${esc(num)}">
         <div class="num">${esc(num)}</div>
         <div class="meta">
           <span>${o?('👥'+o.guests):'свободен'}</span>
@@ -1202,7 +1222,7 @@ function renderTable(tb,mn,bt){
   const o=order(S.activeTable);
   if(!o){ S.screen='floor'; render(); return; }
   tb.innerHTML=`<button class="back" id="bk">‹ Зал</button>
-    <h1>Стол ${esc(o.table)} <span class="sub">${o.guests} гост. · ${mmss(Date.now()-o.openedAt)}</span></h1>
+    <h1>Стол ${esc(o.table)} <span class="sub">${o.guests} гост. · <span id="tbl-elapsed">${mmss(Date.now()-o.openedAt)}</span></span></h1>
     <button class="iconbtn" id="gplus">+гость</button>`;
   tb.querySelector('#bk').onclick=()=>{S.screen='floor';S.menuOpen=false;render();};
   tb.querySelector('#gplus').onclick=()=>{o.guests++;save();render();};
@@ -1255,20 +1275,26 @@ function renderTable(tb,mn,bt){
     bt.appendChild(cb);
   }
 }
-function itemRow(i){
+/* динамическая часть строки позиции (класс + таймер) — отдельно от разметки,
+   чтобы секундный тик мог патчить только текст, не пересобирая DOM (см. patchLiveTimers) */
+function itemLiveState(i){
   const now=Date.now();
   const r=readyAt(i), ready=isReady(i);
   const lateNoCook = i.punchedAt && !i.cook && !i.delivered && (now-i.punchedAt)>S.lateMin*60000;
   const cls = i.delivered?'done':(ready||lateNoCook?'late':(i.punchedAt?'punched':''));
-  const mods=Object.entries(i.mods||{}).map(([k,v])=>`${esc(k)}: <b>${esc(v)}</b>`).join(' · ');
-  const dish=menu.dishes.find(x=>x.id===i.dishId);
-  const hasPairing = dish && (pairingFor(dish) || dish.wine);
   let tmr='';
   if(i.punchedAt && !i.delivered){
     if(r && ready) tmr=`<div class="tmr ready">ГОТОВО · ждёт ${mmss(now-r)}</div>`;
     else if(r) tmr=`<div class="tmr">готово через ${mmss(r-now)}</div>`;
     else tmr=`<div class="tmr ${lateNoCook?'late':''}">на кухне ${mmss(now-i.punchedAt)}</div>`;
   }
+  return {cls, tmr};
+}
+function itemRow(i){
+  const {cls, tmr}=itemLiveState(i);
+  const mods=Object.entries(i.mods||{}).map(([k,v])=>`${esc(k)}: <b>${esc(v)}</b>`).join(' · ');
+  const dish=menu.dishes.find(x=>x.id===i.dishId);
+  const hasPairing = dish && (pairingFor(dish) || dish.wine);
   const row=el(`<div class="item ${cls} ${i.punchedAt?'sent':''}" data-iid="${i.id}">
     <div class="body">
       <div class="nm"><span class="qty">${i.qty}×</span> ${esc(i.name)}${i.cook?`<span class="ct">${i.cook}м</span>`:''}</div>
@@ -1285,7 +1311,7 @@ function itemRow(i){
   row.querySelector('.body').onclick=()=>{S.sheet={type:'item',itemId:i.id};render();};
   row.querySelector('[data-a="p"]').onclick=()=>{
     if(i.punchedAt){i.punchedAt=null;i.delivered=false;i.notified=false;save();render();}
-    else {i.punchedAt=Date.now();i.notified=false;const o=order(S.activeTable);save();render();showPunchCard(o.table,[i]);}
+    else {i.punchedAt=Date.now();i.notified=false;const o=order(S.activeTable);save();showPunchCard(o.table,[i]);}
   };
   row.querySelector('[data-a="d"]').onclick=()=>{ i.delivered=!i.delivered; save(); render(); };
   const wBtn=row.querySelector('[data-a="w"]');
@@ -1305,14 +1331,13 @@ function renderMenuDrawer(){
     </div>
   </div>`);
   wrap.querySelector('#md-close').onclick=()=>{S.menuOpen=false;render();};
-  const inp=el(`<input class="search" placeholder="Поиск: цез, кпч, стейк..." value="${esc(S.query)}">`);
-  inp.oninput=e=>{S.query=e.target.value;renderMenuList(list);};
-  wrap.appendChild(inp);
+  const sw=searchBox('Поиск: цез, кпч, стейк...', S.query, v=>{S.query=v;renderMenuList(list);});
+  wrap.appendChild(sw);
   const list=el('<div class="md-list"></div>');
   wrap.appendChild(list);
   renderMenuList(list);
   document.body.appendChild(wrap);
-  if(S.query){ setTimeout(()=>{inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);},0); }
+  if(S.query){ const inp=sw.querySelector('input'); setTimeout(()=>{inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);},0); }
 }
 function dishRow(d,showCrumb,allergenHit){
   const r=remaining(d.id), stopped=S.stop[d.id], ok=dishAvailable(d);
@@ -1356,10 +1381,22 @@ function renderMenuList(container){
     box.querySelector('.head').onclick=()=>{S.openCats[c.name]=!open;renderMenuList(container);};
     if(open){
       c.subs.forEach(s=>{
-        const sb=el('<div class="sub"></div>');
-        if(s.name) sb.appendChild(el(`<h4>${esc(s.name)}</h4>`));
-        s.dishes.forEach(d=>sb.appendChild(dishRow(d,false)));
-        box.appendChild(sb);
+        if(!s.name){
+          const sb=el('<div class="sub"></div>');
+          s.dishes.forEach(d=>sb.appendChild(dishRow(d,false)));
+          box.appendChild(sb);
+          return;
+        }
+        const subKey=c.name+'|'+s.name;
+        const subOpen=!!S.openSubs[subKey];
+        const sh=el(`<div class="subhead">${esc(s.name)}<span class="chev">${subOpen?'▾':'▸'}</span></div>`);
+        sh.onclick=()=>{S.openSubs[subKey]=!subOpen;renderMenuList(container);};
+        box.appendChild(sh);
+        if(subOpen){
+          const sb=el('<div class="sub"></div>');
+          s.dishes.forEach(d=>sb.appendChild(dishRow(d,false)));
+          box.appendChild(sb);
+        }
       });
     }
     container.appendChild(box);
@@ -1378,9 +1415,9 @@ function renderStop(tb,mn,bt){
   tb.innerHTML=`<button class="back" id="bk">‹ Зал</button><h1>Стоп / гоу / лимиты</h1>`;
   tb.querySelector('#bk').onclick=()=>{S.screen='floor';S.query='';render();};
   mn.innerHTML='';
-  const inp=el(`<input class="search" placeholder="Найти блюдо" value="${esc(S.query)}">`);
-  inp.oninput=e=>{S.query=e.target.value;fill();};
-  mn.appendChild(inp);
+  const sw=searchBox('Найти блюдо', S.query, v=>{S.query=v;fill();});
+  mn.appendChild(sw);
+  const inp=sw.querySelector('input');
   const list=el('<div></div>'); mn.appendChild(list);
   function fill(){
     list.innerHTML='';
@@ -1429,9 +1466,9 @@ function renderWine(tb,mn,bt){
   tb.innerHTML=`<button class="back" id="bk">‹ Зал</button><h1>Винная карта <span class="sub">бутылки · ${wines.length}</span></h1>`;
   tb.querySelector('#bk').onclick=()=>{S.screen='floor';S.wq='';render();};
   mn.innerHTML='';
-  const inp=el(`<input class="search" placeholder="Поиск: страна, сорт, название…" value="${esc(S.wq||'')}">`);
-  inp.oninput=e=>{S.wq=e.target.value;fill();};
-  mn.appendChild(inp);
+  const sw=searchBox('Поиск: страна, сорт, название…', S.wq||'', v=>{S.wq=v;fill();});
+  mn.appendChild(sw);
+  const inp=sw.querySelector('input');
   const list=el('<div></div>'); mn.appendChild(list);
   function fill(){
     list.innerHTML='';
@@ -1746,14 +1783,44 @@ function renderSheet(){
   document.body.appendChild(sc);
 }
 
-/* live timers: patch text only, never rebuild DOM (не сбивает ввод) */
+/* live timers: патчим только текст таймеров, не пересобираем весь DOM каждую
+   секунду — раньше тут был полный render() экрана стола/зала 1×/сек, что на
+   слабом телефоне ощутимо тормозило именно там, где важна скорость (см.
+   CONTEXT.md, «на лету пробивать») */
+function patchLiveTimers(){
+  if(S.screen==='floor'){
+    document.querySelectorAll('.tcell[data-table]').forEach(cell=>{
+      const o=order(cell.dataset.table); if(!o) return;
+      const span=cell.querySelector('.meta span:last-child');
+      if(span) span.textContent=mmss(Date.now()-o.openedAt);
+    });
+    document.querySelectorAll('.rb-row[data-at]').forEach(row=>{
+      const w=row.querySelector('.rb-w');
+      if(w) w.textContent=mmss(Date.now()-(+row.dataset.at));
+    });
+  } else if(S.screen==='table'){
+    const o=order(S.activeTable); if(!o) return;
+    const elapsed=document.getElementById('tbl-elapsed');
+    if(elapsed) elapsed.textContent=mmss(Date.now()-o.openedAt);
+    document.querySelectorAll('.item[data-iid]').forEach(row=>{
+      const i=o.items.find(x=>x.id===row.dataset.iid); if(!i) return;
+      const {cls,tmr}=itemLiveState(i);
+      row.className=`item ${cls} ${i.punchedAt?'sent':''}`;
+      const body=row.querySelector('.body');
+      const tmrEl=body.querySelector('.tmr');
+      if(tmr){ const fresh=el(tmr); if(tmrEl) tmrEl.replaceWith(fresh); else body.appendChild(fresh); }
+      else if(tmrEl) tmrEl.remove();
+    });
+  }
+}
 let lastTick=Date.now();
 setInterval(()=>{
   const gap = Date.now()-lastTick; lastTick=Date.now();
   const changed = checkReady();
   if((S.sheet || S.menuOpen) && !changed) return;
-  // gap > 20с значит приложение было свернуто — обновляем всё
-  if(changed || gap>20000 || S.screen==='floor' || S.screen==='table') render();
+  // gap > 20с значит приложение было свернуто — обновляем всё целиком
+  if(changed || gap>20000) { render(); return; }
+  if(S.screen==='floor' || S.screen==='table') patchLiveTimers();
 },1000);
 
 document.addEventListener('visibilitychange',()=>{
