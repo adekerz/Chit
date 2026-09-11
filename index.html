@@ -927,17 +927,86 @@ function parsePairings(text){
 }
 function pairingFor(dish){ return dish ? pairings[dish.id] : null; }
 
-/* ---------- search: substring OR subsequence ("кпч" -> капучино) ---------- */
-function textMatch(n,q){
-  if(!q) return true;
-  n=(n||'').toLowerCase(); const s=q.toLowerCase().trim();
-  if(!s) return true;
-  if(n.includes(s)) return true;
-  const words=s.split(/\s+/);
-  if(words.length>1 && words.every(w=>n.includes(w))) return true;
-  let i=0; for(const ch of n){ if(ch===s[i]) i++; if(i===s.length) return true; }
-  return false;
+/* ---------- поиск ----------
+   Транслитерация нужна, чтобы «авион» находил Avion: половина барной карты на
+   латинице, а набирать её на русской раскладке быстрее, чем переключаться.
+   Ранжирование нужно из-за подпоследовательности («кпч» → капучино): она очень
+   полезна, но без приоритета на «авион» вылезал «Бефстроганов из говядины»
+   (а-в-и-о-н нашлись вразброс). Теперь подпоследовательность идёт последней и
+   прячется, если есть нормальные совпадения. */
+const DIA={'ä':'a','á':'a','à':'a','â':'a','å':'a','ã':'a','ö':'o','ó':'o','ò':'o','ô':'o','ø':'o','õ':'o','ü':'u','ú':'u','ù':'u','û':'u','é':'e','è':'e','ê':'e','ë':'e','í':'i','ì':'i','î':'i','ï':'i','ñ':'n','ç':'c','ý':'y','ß':'ss'};
+function fold(s){ return (s||'').toLowerCase().replace(/ё/g,'е').replace(/[^a-zа-я0-9\s]/g,ch=>DIA[ch]!==undefined?DIA[ch]:' '); }
+const RU2LAT={а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ж:'zh',з:'z',и:'i',й:'i',к:'k',л:'l',м:'m',н:'n',о:'o',
+  п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'h',ц:'c',ч:'ch',ш:'sh',щ:'sh',ъ:'',ы:'y',ь:'',э:'e',ю:'yu',я:'ya'};
+function translit(s){
+  return (s||'').toLowerCase().replace(/ё/g,'е').replace(/дж/g,'j')
+    .replace(/[а-я]/g,c=>RU2LAT[c]!==undefined?RU2LAT[c]:c);
 }
+/* фонетический скелет: «бифитер» и Beefeater, «ягер» и Jägermeister должны сойтись.
+   Транслитерация в лоб этого не даёт — русские пишут на слух, а не по буквам */
+function phon(s){
+  return translit(fold(s)).replace(/[^a-z]/g,'')
+    .replace(/ck/g,'k').replace(/ph/g,'f').replace(/th/g,'t')
+    .replace(/ee|ea/g,'i').replace(/oo|ou/g,'u')
+    .replace(/j/g,'y').replace(/c/g,'k').replace(/x/g,'ks').replace(/w/g,'v').replace(/q/g,'k')
+    .replace(/(.)\1+/g,'$1');
+}
+/* допуск для ПОИСКА рукой: мягче, чем в разборе стоп-листа (там цена ошибки —
+   неверная информация гостю, а здесь максимум лишняя строка в выдаче) */
+function nearPhon(a,b){
+  if(a===b) return true;
+  if(a.length>=4&&b.startsWith(a)) return true;
+  const m=Math.max(a.length,b.length), d=m>=9?3:(m>6?2:1);
+  return Math.abs(a.length-b.length)<=d && lev(a,b)<=d;
+}
+const _phonCache=new Map();
+function phonWords(s){
+  let v=_phonCache.get(s);
+  if(!v){ v=(s||'').split(/\s+/).map(phon).filter(Boolean); _phonCache.set(s,v); }
+  return v;
+}
+// насколько «кучно» лежит подпоследовательность: «кпч» в «капучино» плотнее,
+// чем в «паштете из куриной печени» — значит и в списке должно быть выше
+function subseqSpan(n,s){
+  let i=0, start=-1;
+  for(let k=0;k<n.length;k++){
+    if(n[k]===s[i]){ if(i===0) start=k; i++; if(i===s.length) return k-start+1; }
+  }
+  return -1;
+}
+function searchScore(name,q){
+  const n=(name||'').toLowerCase().replace(/ё/g,'е');
+  const s=(q||'').toLowerCase().replace(/ё/g,'е').trim();
+  if(!s) return 1;
+  if(n.startsWith(s)) return 100;
+  if(n.includes(s)) return 90;
+  const words=s.split(/\s+/).filter(Boolean);
+  if(words.length>1&&words.every(w=>n.includes(w))) return 80;
+  const tn=translit(n), ts=translit(s);
+  if(tn.startsWith(ts)) return 70;
+  if(tn.includes(ts)) return 65;
+  if(words.length>1&&words.every(w=>tn.includes(translit(w)))) return 60;
+  const pq=phonWords(s), pn=phonWords(n);
+  if(pq.length&&pq.every(w=>pn.some(x=>x===w||(w.length>=3&&x.startsWith(w))||(w.length>=3&&nearPhon(w,x))))) return 45;
+  const span=subseqSpan(n,s);
+  if(span>0) return 20+Math.max(0,10-Math.round(span/Math.max(1,s.length)));
+  const tspan=subseqSpan(tn,ts);
+  if(tspan>0) return 10+Math.max(0,5-Math.round(tspan/Math.max(1,ts.length)));
+  return 0;
+}
+const SEARCH_GOOD=60;   // «нормальное» совпадение: с него отсекаем подпоследовательность
+function rankDishes(dishes,q){
+  const out=[];
+  dishes.forEach(d=>{
+    const sc=searchScore(d.name,q);
+    const alg=sc?0:(matchesAllergen(d,q)?40:0);
+    if(sc||alg) out.push({d, sc:Math.max(sc,alg), alg:!sc&&!!alg});
+  });
+  out.sort((a,b)=>b.sc-a.sc);
+  const best=out.length?out[0].sc:0;
+  return best>=SEARCH_GOOD ? out.filter(x=>x.sc>=40) : out;
+}
+function textMatch(n,q){ return searchScore(n,q)>0; }
 function matches(name,q){ return textMatch(name,q); }
 function matchesAllergen(dish,q){
   if(!q||!q.trim()) return false;
@@ -962,11 +1031,7 @@ function matchesAllergen(dish,q){
    ошибки будет неверная информация гостю («мск» не должно вставать стопом на
    «Масала»). Опечатки ловит отдельный слой findNear, и его догадки не
    применяются молча — официант подтверждает их тапом. */
-const DIA={'ä':'a','á':'a','à':'a','â':'a','å':'a','ã':'a','ö':'o','ó':'o','ò':'o','ô':'o','ø':'o','õ':'o','ü':'u','ú':'u','ù':'u','û':'u','é':'e','è':'e','ê':'e','ë':'e','í':'i','ì':'i','î':'i','ï':'i','ñ':'n','ç':'c','ý':'y','ß':'ss'};
-function normName(s){
-  const x=(s||'').toLowerCase().replace(/ё/g,'е').replace(/[^a-zа-я0-9\s]/g,ch=>DIA[ch]!==undefined?DIA[ch]:' ');
-  return x.replace(/[^a-zа-я0-9]+/g,' ').trim();
-}
+function normName(s){ return fold(s).replace(/[^a-zа-я0-9]+/g,' ').trim(); }
 // в JS \b и \w не понимают кириллицу, поэтому границы слов ловим пробелами
 function hasWords(hay,needle){ return (' '+hay+' ').includes(' '+needle+' '); }
 function stemW(w){ return w.length>4?w.slice(0,4):w; }   // «лимонады»/«лимонад», «ликёры»/«ликер»
@@ -1004,6 +1069,11 @@ function findBest(pool,txt){
     else {
       const words=q.split(' ').filter(w=>w.length>2);
       if(words.length&&words.every(w=>hasWords(n,w))) sc=60;
+      else {
+        // «Авион» написали кириллицей, а в меню латиница
+        const tn=it._tr||(it._tr=translit(n)), tq=translit(q);
+        if(tn===tq||hasWords(tn,tq)||hasWords(tq,tn)) sc=58;
+      }
     }
     if(!sc) return;
     if(sc>best){ best=sc; hits=[it]; } else if(sc===best) hits.push(it);
@@ -1032,7 +1102,9 @@ function tokenNear(a,b){
   return Math.abs(a.length-b.length)<=d && lev(a,b)<=d;
 }
 function findNear(pool,txt){
-  const qt=normName(txt).split(' ').filter(w=>w.length>2);
+  // короткие слова тоже считаем: «El humidor» → «El Jimador» держится именно на «el»
+  // (humidor/jimador отличаются на три буквы — для опечатки слишком много)
+  const qt=normName(txt).split(' ').filter(w=>w.length>=2);
   if(!qt.length) return {score:0,items:[]};
   let best=0, hits=[];
   pool.forEach(it=>{
@@ -1044,6 +1116,19 @@ function findNear(pool,txt){
     // Сам не выбираю, показываю оба варианта — официант тапает нужный
     if(sc<0.5) return;
     if(sc>best+0.001){ best=sc; hits=[it]; } else if(Math.abs(sc-best)<0.001) hits.push(it);
+  });
+  return {score:best,items:hits};
+}
+
+/* последний слой: «Авион» вместо Avion, «Бифитер» вместо Beefeater — русскими
+   буквами на слух. Транслитерация (65+) достаточно надёжна, чтобы применить
+   сразу; фонетика (45) — только через подтверждение */
+function findPhon(pool,txt){
+  let best=0, hits=[];
+  pool.forEach(it=>{
+    const sc=searchScore(it.name,txt);
+    if(sc<45) return;
+    if(sc>best){ best=sc; hits=[it]; } else if(sc===best) hits.push(it);
   });
   return {score:best,items:hits};
 }
@@ -1142,7 +1227,15 @@ function parseStopText(text){
       if(items.length){
         items.forEach(it=>put(out.actions,mk(line,it,q.qty,mode)));
         out.notes.push({line,count:items.length});
-      } else out.unknown.push(line);
+        return;
+      }
+      // «Бифитер весь» — написано на слух: показываем кандидатов, отмечает официант.
+      // Область снова только подсказка: в списке группа могла быть указана неточно
+      const sp0=scopePool();
+      let ph=sp0&&sp0.length?findPhon(sp0,allTxt):{score:0,items:[]};
+      if(!ph.items.length) ph=findPhon(dishPool.concat(winePool),allTxt);
+      if(ph.items.length) out.choose.push({line,items:ph.items.slice(0,6),qty:q.qty,mode});
+      else out.unknown.push(line);
       return;
     }
     // заголовок группы: «Вина:», «Текила:», «Пиво бутылочное:»
@@ -1185,7 +1278,16 @@ function parseStopText(text){
         else out.suggest.push(rec);                  // частично — только по подтверждению
         return;
       }
-      if(near.items.length>1){ out.choose.push({line:txt,items:near.items.slice(0,4),qty:q.qty,mode}); return; }
+      if(near.items.length>1){ out.choose.push({line:txt,items:near.items.slice(0,6),qty:q.qty,mode}); return; }
+      // русскими буквами про латиницу: «Авион» → Avion, «Бифитер» → Beefeater
+      const ph=findPhon(scope&&scope.kind==='wine'?winePool:dishPool.concat(winePool),txt);
+      if(ph.items.length===1){
+        const rec=mk(txt,ph.items[0],q.qty,mode,true);
+        if(ph.score>=65) put(out.actions,rec);   // транслитерация однозначна
+        else out.suggest.push(rec);              // фонетика — только по подтверждению
+        return;
+      }
+      if(ph.items.length>1){ out.choose.push({line:txt,items:ph.items.slice(0,6),qty:q.qty,mode}); return; }
       out.unknown.push(txt);
     };
 
@@ -1631,9 +1733,9 @@ function dishRow(d,showCrumb,allergenHit){
 function renderMenuList(container){
   container.innerHTML='';
   if(S.query.trim()){
-    const found=menu.dishes.filter(d=>matches(d.name,S.query)||matchesAllergen(d,S.query)).slice(0,40);
+    const found=rankDishes(menu.dishes,S.query).slice(0,40);
     if(!found.length){ container.appendChild(el('<div class="hint">Ничего не нашлось</div>')); return; }
-    found.forEach(d=>container.appendChild(dishRow(d,true,!matches(d.name,S.query)&&matchesAllergen(d,S.query))));
+    found.forEach(x=>container.appendChild(dishRow(x.d,true,x.alg)));
     return;
   }
   const gos=menu.dishes.filter(d=>S.go[d.id]&&dishAvailable(d));
@@ -1688,7 +1790,7 @@ function renderStop(tb,mn,bt){
   function fill(){
     list.innerHTML='';
     const src = S.query.trim()
-      ? menu.dishes.filter(d=>matches(d.name,S.query)||matchesAllergen(d,S.query))
+      ? rankDishes(menu.dishes,S.query).map(x=>x.d)
       : menu.dishes.filter(d=>S.stop[d.id]||S.go[d.id]||S.limits[d.id]!==undefined);
     const wineStopped=wines.filter(w=>S.wstop[slug(w.name)]!==undefined);
     if(!src.length&&!(wineStopped.length&&!S.query.trim())){
@@ -2105,11 +2207,15 @@ function renderSheet(){
     const picked=()=>{
       const outp=res.suggest.filter((r,i)=>S.sheet.pick['s'+i]);
       res.choose.forEach((ch,i)=>{
-        const j=S.sheet.pick['c'+i];
-        if(j!==undefined&&ch.items[j]) outp.push(mkRec(ch.line,ch.items[j],ch.qty,ch.mode));
+        const sel=S.sheet.pick['c'+i]||{};
+        ch.items.forEach((it,j)=>{ if(sel[j]) outp.push(mkRec(ch.line,it,ch.qty,ch.mode)); });
       });
       return outp;
     };
+    const chooseLeft=()=>res.choose.filter((ch,i)=>{
+      const sel=S.sheet.pick['c'+i]||{};
+      return !ch.items.some((it,j)=>sel[j]);
+    }).length;
     function preview(){
       res=parseStopText(S.sheet.text);
       prev.innerHTML='';
@@ -2135,12 +2241,16 @@ function renderSheet(){
         prev.appendChild(box);
       }
       if(res.choose.length){
-        const box=el(`<div class="warnbox"><b>⚠ Нужно выбрать: ${res.choose.length}</b><div style="opacity:.75;margin:3px 0 6px">Сам не угадываю — ткни нужное.</div></div>`);
+        const box=el(`<div class="warnbox"><b>⚠ Нужно выбрать: ${res.choose.length}</b><div style="opacity:.75;margin:3px 0 6px">Сам не угадываю — ткни нужное. Можно отметить сразу несколько.</div></div>`);
         res.choose.forEach((ch,i)=>{
+          const sel=S.sheet.pick['c'+i]||{};
           box.appendChild(el(`<div style="margin-top:6px">«${esc(ch.line)}»</div>`));
           ch.items.forEach((it,j)=>{
-            const b=el(`<button class="chip ${S.sheet.pick['c'+i]===j?'on':''}" style="margin:3px 4px 0 0;text-align:left">${esc(it.name)}${it.kind==='wine'?' 🍷':''}</button>`);
-            b.onclick=()=>{ S.sheet.pick['c'+i]=S.sheet.pick['c'+i]===j?undefined:j; preview(); };
+            const b=el(`<button class="chip ${sel[j]?'on':''}" style="margin:3px 4px 0 0;text-align:left">${esc(it.name)}${it.kind==='wine'?' 🍷':''}</button>`);
+            b.onclick=()=>{
+              const cur=S.sheet.pick['c'+i]||{};
+              cur[j]=!cur[j]; S.sheet.pick['c'+i]=cur; preview();
+            };
             box.appendChild(b);
           });
         });
@@ -2184,7 +2294,7 @@ function renderSheet(){
         if(r.stop){ S.stop[id]=1; delete S.go[id]; }
         if(r.limit!=null) S.limits[id]=r.limit;
       });
-      const skipped=res.unknown.length+res.choose.length+res.suggest.length-chosen.length;
+      const skipped=res.unknown.length+chooseLeft()+res.suggest.filter((r,i)=>!S.sheet.pick['s'+i]).length;
       save(); S.sheet=null; render();
       toast('Применено: '+list.length+(skipped?' · не распознано: '+skipped:''));
     };
