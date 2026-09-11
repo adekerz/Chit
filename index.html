@@ -9,6 +9,7 @@
 <meta name="theme-color" content="#14161A">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
 <title>Chit</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1110,14 +1111,13 @@ function parseStopText(text){
     stop: qty==null && mode!=='go'
   });
 
-  let mode='stop', scope=null, scopeLabel='';
+  let mode='stop', scope=null;
   (text||'').split('\n').forEach(raw=>{
     const sect=detectSection(raw);
     if(sect){
       mode=sect.mode;
       const subs=sect.area?findSubs(sect.area):[];
       scope=subs.length?{kind:'dish',subs}:null;
-      scopeLabel=scope?sect.area:'';
       return;
     }
     const rawTrim=(raw||'').replace(EMOJI,' ').trim();
@@ -1147,10 +1147,12 @@ function parseStopText(text){
     }
     // заголовок группы: «Вина:», «Текила:», «Пиво бутылочное:»
     if(isHeaderLike){
-      if(isWineWord(line)){ scope={kind:'wine'}; scopeLabel=line; return; }
+      if(isWineWord(line)){ scope={kind:'wine'}; return; }
       const subs=findSubs(line);
-      if(subs.length){ scope={kind:'dish',subs}; scopeLabel=line; return; }
-      return;   // неизвестный заголовок — просто игнорируем, поиск останется общим
+      // незнакомый заголовок всё равно сбрасывает область: следующие строки уже
+      // из другой группы, искать их в предыдущей («Текила») — хуже, чем по всему меню
+      scope=subs.length?{kind:'dish',subs}:null;
+      return;
     }
 
     function scopePool(){
@@ -1191,6 +1193,13 @@ function parseStopText(text){
     // строгое совпадение целой строкой выигрывает: в названиях есть запятые
     // («Томаты ким чи, кунжут ким чи») — такую строку резать нельзя
     if(whole.score>=80&&whole.items.length===1){ put(out.actions,mk(line,whole.items[0],q.qty,mode)); return; }
+    // «Текила» без двоеточия — тоже заголовок группы, если совпала с подкатегорией
+    // и при этом ни одно блюдо так не называется
+    if(whole.score<60){
+      if(isWineWord(line)){ scope={kind:'wine'}; return; }
+      const subs=findSubs(line);
+      if(subs.length){ scope={kind:'dish',subs}; return; }
+    }
     const parts=line.split(/[,;]|\s+и\s+|\s*\/\s*/).map(p=>cleanStopLine(p)).filter(p=>p&&/[a-zа-яё]/i.test(p));
     if(parts.length>1){ parts.forEach(take); return; }
     take(line);
@@ -1710,6 +1719,7 @@ function renderStop(tb,mn,bt){
       };
       list.appendChild(row);
     });
+    if(src.length>60) list.appendChild(el(`<div class="hint" style="padding:10px;font-size:12px">Показаны первые 60 из ${src.length}</div>`));
     // бутылки из винной карты: в меню их нет, но в стоп-листе бара они есть всегда
     if(wineStopped.length&&!S.query.trim()){
       list.appendChild(el(`<div class="zone-title">Вино · стоп (${wineStopped.length})</div>`));
@@ -1758,8 +1768,9 @@ function renderWine(tb,mn,bt){
       const tag = st===undefined ? '' : (st>0?`<span class="tag lim">ост. ${st}</span>`:'<span class="tag stop">стоп</span>');
       const row=el(`<div class="stoprow"${st===0?' style="opacity:.45"':''}><div class="sn">${esc(w.name)}${tag}${w.meta?`<div class="sc">${esc(w.meta)}</div>`:''}</div><div class="wprice">${money(w.price)} ₸</div></div>`);
       row.onclick=()=>{
-        if(S.wstop[id]===undefined) S.wstop[id]=0; else delete S.wstop[id];
-        save(); render();
+        const on=S.wstop[id]===undefined;
+        if(on) S.wstop[id]=0; else delete S.wstop[id];
+        save(); render(); toast(on?'Стоп: '+w.name:'Снят стоп: '+w.name);
       };
       list.appendChild(row);
     });
@@ -1887,7 +1898,9 @@ function renderSheet(){
   const sc=el('<div class="scrim"></div>');
   const sh=el('<div class="sheet"></div>');
   sc.appendChild(sh);
-  sc.onclick=e=>{ if(e.target===sc){S.sheet=null;render();} };
+  // тап мимо закрывает шторку, но не там, где внутри уже набран текст:
+  // потерять вставленный стоп-лист вместе с выбором вариантов слишком дорого
+  sc.onclick=e=>{ if(e.target===sc && S.sheet && S.sheet.type!=='stoptext'){S.sheet=null;render();} };
   const t=S.sheet.type;
 
   if(t==='open'){
@@ -2144,8 +2157,14 @@ function renderSheet(){
       k.disabled=!apply();
       k.textContent=apply()?`Применить (${apply()})`:'Применить';
     }
-    // превью пересобираем точечно, без render() — иначе фокус в поле слетает на каждом символе
-    ta.querySelector('#st').oninput=e=>{ S.sheet.text=e.target.value; S.sheet.pick={}; preview(); };
+    // превью пересобираем точечно, без render() — иначе фокус в поле слетает на каждом символе.
+    // Разбор длинного списка стоит ~20 мс на десктопе и заметно больше на телефоне,
+    // поэтому при ручной правке ждём паузу в наборе, а не считаем на каждую букву
+    let prevT=null;
+    ta.querySelector('#st').oninput=e=>{
+      S.sheet.text=e.target.value; S.sheet.pick={};
+      clearTimeout(prevT); prevT=setTimeout(preview,200);
+    };
     preview();
 
     k.onclick=()=>{
@@ -2184,6 +2203,10 @@ function patchLiveTimers(){
       const o=order(cell.dataset.table); if(!o) return;
       const span=cell.querySelector('.meta span:last-child');
       if(span) span.textContent=mmss(Date.now()-o.openedAt);
+      // статус тоже патчим: порог «висит долго» наступает сам по времени, без
+      // события от checkReady — иначе стол не покраснеет до следующей перерисовки
+      const st=orderStatus(o), want='tcell '+(st==='free'?'':st);
+      if(cell.className!==want) cell.className=want;
     });
     document.querySelectorAll('.rb-row[data-at]').forEach(row=>{
       const w=row.querySelector('.rb-w');
