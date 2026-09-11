@@ -824,7 +824,7 @@ const PAIRING_TEXT = `# Буррата микс томатов
 let S = {
   screen:'floor', activeTable:null, activeGuest:1,
   menuText:DEFAULT_MENU, tablesText:DEFAULT_TABLES,
-  orders:{}, stop:{}, go:{}, limits:{},
+  orders:{}, stop:{}, go:{}, limits:{}, wstop:{},
   query:'', openCats:{}, openSubs:{}, sheet:null, toast:null, menuOpen:false,
   lateMin:12, serviceFee:10, sound:true, defaultCook:0, ready:[]
 };
@@ -943,32 +943,59 @@ function matchesAllergen(dish,q){
   return (dish.allergens||[]).some(a=>textMatch(a,q));
 }
 
-/* ---------- разбор стоп-листа, вставленного текстом из группы ----------
-   Здесь НЕ используется нечёткий textMatch (подпоследовательность): «мск» не должно
-   случайно встать стопом на «Масала». Стоп — зона ошибки перед гостем, поэтому
-   совпадение только по реальному вхождению слов, а всё спорное уходит в предупреждение. */
-function normName(s){ return (s||'').toLowerCase().replace(/ё/g,'е').replace(/[^a-zа-я0-9]+/g,' ').trim(); }
+/* ---------- разбор стоп-листа / ограничений / гоу, вставленных текстом ----------
+   Сообщение из рабочей группы приходит примерно так:
+     КУХНЯ ОГРАНИЧЕНИЕ: 🛑        ← секция: дальше лимиты
+     Щеки с пюре 6 порций          ← лимит 6
+     СТОП ЛИСТ БАР ❌              ← секция: дальше стопы
+     Вина:                         ← группа: дальше ищем в винной карте
+     Pertois moriset
+     Текила:                       ← группа: дальше ищем внутри подкатегории «Текила»
+     Azul
+     Пиво разливное: все           ← вся подкатегория
+     Все авторские коктейли        ← вся подкатегория
+     Beefeater весь                ← все позиции с этим словом в названии
+
+   Строгое совпадение — только по границам слов (hasWords), НЕ через textMatch:
+   нечёткая подпоследовательность хороша для поиска блюда рукой, но здесь ценой
+   ошибки будет неверная информация гостю («мск» не должно вставать стопом на
+   «Масала»). Опечатки ловит отдельный слой findNear, и его догадки не
+   применяются молча — официант подтверждает их тапом. */
+const DIA={'ä':'a','á':'a','à':'a','â':'a','å':'a','ã':'a','ö':'o','ó':'o','ò':'o','ô':'o','ø':'o','õ':'o','ü':'u','ú':'u','ù':'u','û':'u','é':'e','è':'e','ê':'e','ë':'e','í':'i','ì':'i','î':'i','ï':'i','ñ':'n','ç':'c','ý':'y','ß':'ss'};
+function normName(s){
+  const x=(s||'').toLowerCase().replace(/ё/g,'е').replace(/[^a-zа-я0-9\s]/g,ch=>DIA[ch]!==undefined?DIA[ch]:' ');
+  return x.replace(/[^a-zа-я0-9]+/g,' ').trim();
+}
 // в JS \b и \w не понимают кириллицу, поэтому границы слов ловим пробелами
 function hasWords(hay,needle){ return (' '+hay+' ').includes(' '+needle+' '); }
+function stemW(w){ return w.length>4?w.slice(0,4):w; }   // «лимонады»/«лимонад», «ликёры»/«ликер»
 const STOP_NOISE=/^(всем\s+)?(привет[а-яё]*|здравствуйте|добр(ое|ый|ой)\s+[а-яё]+|на\s+сегодня|сегодня|стоп|стоп[\s-]*лист|кухня|бар|важно|upd|апдейт|обновление|update)$/i;
+const EMOJI=/[\u{1F000}-\u{1FAFF}\u{2190}-\u{27BF}\u{FE0F}\u{2022}]/gu;
+
+function splitQty(s){
+  let qty=null;
+  // единица обязательна: иначе «Ballantine's 17» превратилось бы в лимит 17
+  s=s.replace(/\s*\(?\s*(?:осталось|остаток|ост\.?)\s*(\d{1,3})\s*(?:шт\.?|порц[а-яё]*|пор)?\s*\)?\s*$/i,(m,n)=>{qty=+n;return '';});
+  if(qty===null) s=s.replace(/\s*[—–(-]?\s*(\d{1,3})\s*(?:шт\.?|штук[а-яё]*|порц[а-яё]*|пор)\.?\)?\s*$/i,(m,n)=>{qty=+n;return '';});
+  return {qty,text:s.trim()};
+}
 function cleanStopLine(raw){
-  let s=(raw||'')
-    .replace(/[\u{1F000}-\u{1FAFF}\u{2190}-\u{27BF}\u{FE0F}\u{2022}]/gu,' ')  // эмодзи, стрелки, буллеты
+  let s=(raw||'').replace(EMOJI,' ')
     .replace(/^[\s\-–—*·>+.]+/,'')          // маркеры списка
     .replace(/^\d+[.)]\s*/,'')              // «1. » / «1) »
     .trim();
   s=s.replace(/^стоп[\s-]*лист(?![а-яё])[\s:—–-]*/i,'').replace(/^стоп(?![а-яё])[\s:—–-]+/i,'');
   s=s.replace(/\s*[—–-]\s*(нет|закончил(ся|ась|ось|ись)|стоп|отсутствует)\s*$/i,'');
-  s=s.replace(/\s*\(?\s*(осталось|остаток|ост)\.?\s*\d+\s*(шт|порц[а-яё]*)?\.?\s*\)?$/i,'');
-  s=s.replace(/\s*[—–(-]?\s*\d+\s*(шт|порц[а-яё]*|пор)\.?\)?$/i,'');
   return s.replace(/[.,;:!]+$/,'').trim();
 }
-function findDishByText(txt){
+
+/* строгий поиск по пулу позиций (блюда меню или бутылки винной карты) */
+function findBest(pool,txt){
   const q=normName(txt);
-  if(!q) return {score:0,dishes:[]};
+  if(!q) return {score:0,items:[]};
   let best=0, hits=[];
-  menu.dishes.forEach(d=>{
-    const n=normName(d.name);
+  pool.forEach(it=>{
+    const n=it._n||(it._n=normName(it.name));
     let sc=0;
     if(n===q) sc=100;
     else if(hasWords(n,q)) sc=80;        // «Дорадо» → «Дорадо целиком на хоспере»
@@ -978,29 +1005,195 @@ function findDishByText(txt){
       if(words.length&&words.every(w=>hasWords(n,w))) sc=60;
     }
     if(!sc) return;
-    if(sc>best){ best=sc; hits=[d]; } else if(sc===best) hits.push(d);
+    if(sc>best){ best=sc; hits=[it]; } else if(sc===best) hits.push(it);
   });
-  return {score:best,dishes:hits};
+  return {score:best,items:hits};
 }
+
+/* поиск с опечатками: «Chateu saint Robert cuvee» → «Chateau Saint-Robert Cuvee …» */
+function lev(a,b){
+  if(a===b) return 0;
+  const m=a.length,n=b.length;
+  if(!m||!n) return m||n;
+  let prev=Array.from({length:n+1},(_,i)=>i), cur=new Array(n+1);
+  for(let i=1;i<=m;i++){
+    cur[0]=i;
+    for(let j=1;j<=n;j++) cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    const t=prev; prev=cur; cur=t;
+  }
+  return prev[n];
+}
+function tokenNear(a,b){
+  if(a===b) return true;
+  // оба конца от 4 букв: иначе «h» из «G.H.Mumm» совпадёт с «humidor»
+  if(Math.min(a.length,b.length)>=4&&(b.startsWith(a)||a.startsWith(b))) return true;
+  const d=Math.max(a.length,b.length)>6?2:1;
+  return Math.abs(a.length-b.length)<=d && lev(a,b)<=d;
+}
+function findNear(pool,txt){
+  const qt=normName(txt).split(' ').filter(w=>w.length>2);
+  if(!qt.length) return {score:0,items:[]};
+  let best=0, hits=[];
+  pool.forEach(it=>{
+    const nt=it._t||(it._t=normName(it.name).split(' ').filter(Boolean));
+    let hit=0;
+    qt.forEach(q=>{ if(nt.some(n=>tokenNear(q,n))) hit++; });
+    const sc=hit/qt.length;
+    // 0.5 — половина слов строки: «Щеки с пюре» → «Говяжьи щёки» / «Картофельное пюре».
+    // Сам не выбираю, показываю оба варианта — официант тапает нужный
+    if(sc<0.5) return;
+    if(sc>best+0.001){ best=sc; hits=[it]; } else if(Math.abs(sc-best)<0.001) hits.push(it);
+  });
+  return {score:best,items:hits};
+}
+
+/* «Текила:», «Пиво разливное», «Кухня» → подкатегории меню */
+function findSubs(txt){
+  const q=normName(txt).split(' ').filter(Boolean).map(stemW);
+  if(!q.length) return [];
+  const out=[];
+  menu.cats.forEach(c=>c.subs.forEach(s=>{
+    if(!s.name) return;
+    const nw=normName(c.name+' '+s.name).split(' ').filter(Boolean).map(stemW);
+    if(q.every(w=>nw.includes(w))) out.push(s);
+  }));
+  return out;
+}
+function isWineWord(txt){ return /^вин[аоы]?$/i.test(normName(txt)); }
+
+/* заголовок секции: меняет режим (стоп / гоу / лимиты) на все строки ниже.
+   «Рибай — стоп» заголовком не считается: после вычитания служебных слов
+   остаётся название блюда, а не «кухня»/«бар». */
+function detectSection(raw){
+  const h=(raw||'').replace(EMOJI,' ').trim();
+  if(!/(стоп|гоу|ограничен[а-яё]*|лимит[а-яё]*|^go\b)/i.test(h)) return null;
+  let mode=null;
+  if(/ограничен|лимит/i.test(h)) mode='limit';
+  else if(/гоу|^go\b/i.test(h)) mode='go';
+  else if(/стоп/i.test(h)) mode='stop';
+  if(!mode) return null;
+  const rest=normName(h.replace(/стоп|лист|гоу|go|ограничен[а-яё]*|лимит[а-яё]*|на сегодня|сегодня/gi,''));
+  if(rest&&!/^(кухня|кухни|бар|бара|зал)$/.test(rest)) return null;
+  return {mode,area:rest||null};
+}
+/* «все авторские коктейли», «Пиво разливное: все», «Beefeater весь» */
+function detectAll(line){
+  let m=line.match(/^(?:вс[её]|весь|вся)\s+(.+)$/i);
+  if(m) return m[1].trim();
+  m=line.match(/^(.+?)\s*[:—–-]?\s*(?:вс[её]|весь|вся)$/i);
+  if(m) return m[1].trim();
+  return null;
+}
+
 function parseStopText(text){
-  const out={matched:[],unknown:[],ambiguous:[]}, seen={};
-  const add=(line,d)=>{ if(!seen[d.id]){ seen[d.id]=1; out.matched.push({line,dish:d}); } };
-  const take=(line,res)=>{
-    if(res.score>=60&&res.dishes.length===1){ add(line,res.dishes[0]); return; }
-    if(res.score>=60) out.ambiguous.push({line,dishes:res.dishes.slice(0,4)});
-    else out.unknown.push(line);
-  };
+  const dishPool=menu.dishes.map(d=>({kind:'dish',id:d.id,name:d.name,sub:d.sub,cat:d.cat}));
+  const winePool=wines.map(w=>({kind:'wine',id:slug(w.name),name:w.name,sub:w.cat,cat:'Вино'}));
+  const byId={};
+  dishPool.forEach(it=>byId['dish:'+it.id]=it);
+  const out={actions:[],suggest:[],choose:[],unknown:[],notes:[]};
+  const reg={};
+  function put(list,rec){
+    const k=rec.target.kind+':'+rec.target.id;
+    const prev=reg[k];
+    if(prev){
+      if(rec.limit!=null) prev.limit=rec.limit;
+      if(rec.go){ prev.go=true; prev.stop=false; }
+      else if(rec.stop&&!prev.go) prev.stop=true;
+      return;
+    }
+    reg[k]=rec; list.push(rec);
+  }
+  const mk=(line,target,qty,mode,near)=>({
+    line, target, near:!!near,
+    limit: qty!=null?qty:null,
+    go: mode==='go',
+    stop: qty==null && mode!=='go'
+  });
+
+  let mode='stop', scope=null, scopeLabel='';
   (text||'').split('\n').forEach(raw=>{
-    const line=cleanStopLine(raw);
+    const sect=detectSection(raw);
+    if(sect){
+      mode=sect.mode;
+      const subs=sect.area?findSubs(sect.area):[];
+      scope=subs.length?{kind:'dish',subs}:null;
+      scopeLabel=scope?sect.area:'';
+      return;
+    }
+    const rawTrim=(raw||'').replace(EMOJI,' ').trim();
+    const isHeaderLike=/[:：]\s*$/.test(rawTrim);
+    const q=splitQty(cleanStopLine(raw));
+    const line=q.text;
     if(!line||!/[a-zа-яё]/i.test(line)) return;
     if(STOP_NOISE.test(line)) return;
-    const whole=findDishByText(line);
+
+    // групповая строка «все …»
+    const allTxt=detectAll(line);
+    if(allTxt){
+      const subs=findSubs(allTxt);
+      let items=[];
+      if(subs.length) subs.forEach(s=>s.dishes.forEach(d=>items.push(byId['dish:'+d.id])));
+      else if(isWineWord(allTxt)) items=winePool.slice();
+      else {
+        const nq=normName(allTxt);
+        const src=scopePool()||dishPool;
+        items=src.filter(it=>hasWords(it._n||(it._n=normName(it.name)),nq));
+      }
+      if(items.length){
+        items.forEach(it=>put(out.actions,mk(line,it,q.qty,mode)));
+        out.notes.push({line,count:items.length});
+      } else out.unknown.push(line);
+      return;
+    }
+    // заголовок группы: «Вина:», «Текила:», «Пиво бутылочное:»
+    if(isHeaderLike){
+      if(isWineWord(line)){ scope={kind:'wine'}; scopeLabel=line; return; }
+      const subs=findSubs(line);
+      if(subs.length){ scope={kind:'dish',subs}; scopeLabel=line; return; }
+      return;   // неизвестный заголовок — просто игнорируем, поиск останется общим
+    }
+
+    function scopePool(){
+      if(!scope) return null;
+      if(scope.kind==='wine') return winePool;
+      const ids={}; scope.subs.forEach(s=>s.dishes.forEach(d=>ids[d.id]=1));
+      return dishPool.filter(it=>ids[it.id]);
+    }
+    function resolve(txt){
+      const sp=scopePool();
+      if(sp){
+        const inScope=findBest(sp,txt);
+        if(inScope.score>=60) return inScope;
+      }
+      const all=scope&&scope.kind==='wine'?winePool:dishPool.concat(winePool);
+      return findBest(all,txt);
+    }
+    const take=txt=>{
+      const res=resolve(txt);
+      if(res.score>=60&&res.items.length===1){ put(out.actions,mk(txt,res.items[0],q.qty,mode)); return; }
+      if(res.score>=60){ out.choose.push({line:txt,items:res.items.slice(0,4),qty:q.qty,mode}); return; }
+      // область (заголовок «Ликёры:») — это подсказка, а не ограничение: Jägermeister
+      // лежит в другой подкатегории, но в стоп-листе написан под «Ликер:»
+      const sp=scopePool();
+      let near=sp&&sp.length?findNear(sp,txt):{score:0,items:[]};
+      if(!near.items.length) near=findNear(dishPool.concat(winePool),txt);
+      if(near.items.length===1){
+        const rec=mk(txt,near.items[0],q.qty,mode,true);
+        if(near.score>0.999) put(out.actions,rec);   // все слова совпали с точностью до опечатки
+        else out.suggest.push(rec);                  // частично — только по подтверждению
+        return;
+      }
+      if(near.items.length>1){ out.choose.push({line:txt,items:near.items.slice(0,4),qty:q.qty,mode}); return; }
+      out.unknown.push(txt);
+    };
+
+    const whole=resolve(line);
     // строгое совпадение целой строкой выигрывает: в названиях есть запятые
     // («Томаты ким чи, кунжут ким чи») — такую строку резать нельзя
-    if(whole.score>=80&&whole.dishes.length===1){ add(line,whole.dishes[0]); return; }
-    const parts=line.split(/[,;]|\s+и\s+|\s*\/\s*/).map(cleanStopLine).filter(p=>p&&/[a-zа-яё]/i.test(p));
-    if(parts.length>1){ parts.forEach(p=>take(p,findDishByText(p))); return; }
-    take(line,whole);
+    if(whole.score>=80&&whole.items.length===1){ put(out.actions,mk(line,whole.items[0],q.qty,mode)); return; }
+    const parts=line.split(/[,;]|\s+и\s+|\s*\/\s*/).map(p=>cleanStopLine(p)).filter(p=>p&&/[a-zа-яё]/i.test(p));
+    if(parts.length>1){ parts.forEach(take); return; }
+    take(line);
   });
   return out;
 }
@@ -1137,7 +1330,7 @@ function save(){
   saveT=setTimeout(()=>{
     store.set('floor-v2',JSON.stringify({
       menuText:S.menuText,tablesText:S.tablesText,orders:S.orders,
-      stop:S.stop,go:S.go,limits:S.limits,lateMin:S.lateMin,serviceFee:S.serviceFee,sound:S.sound,defaultCook:S.defaultCook
+      stop:S.stop,go:S.go,limits:S.limits,wstop:S.wstop,lateMin:S.lateMin,serviceFee:S.serviceFee,sound:S.sound,defaultCook:S.defaultCook
     }));
   },250);
 }
@@ -1488,8 +1681,9 @@ function renderStop(tb,mn,bt){
     const src = S.query.trim()
       ? menu.dishes.filter(d=>matches(d.name,S.query)||matchesAllergen(d,S.query))
       : menu.dishes.filter(d=>S.stop[d.id]||S.go[d.id]||S.limits[d.id]!==undefined);
-    if(!src.length){
-      list.appendChild(el('<div class="hint">Ограничений нет.<br>Найди блюдо в поиске и поставь стоп, гоу или лимит на смену.</div>'));
+    const wineStopped=wines.filter(w=>S.wstop[slug(w.name)]!==undefined);
+    if(!src.length&&!(wineStopped.length&&!S.query.trim())){
+      list.appendChild(el('<div class="hint">Ограничений нет.<br>Вставь стоп-лист текстом или найди блюдо в поиске.</div>'));
       return;
     }
     src.slice(0,60).forEach(d=>{
@@ -1516,21 +1710,35 @@ function renderStop(tb,mn,bt){
       };
       list.appendChild(row);
     });
+    // бутылки из винной карты: в меню их нет, но в стоп-листе бара они есть всегда
+    if(wineStopped.length&&!S.query.trim()){
+      list.appendChild(el(`<div class="zone-title">Вино · стоп (${wineStopped.length})</div>`));
+      wineStopped.forEach(w=>{
+        const id=slug(w.name), st=S.wstop[id];
+        const row=el(`<div class="stoprow">
+          <div class="sn">${esc(w.name)}<div class="sc">${esc(w.cat)}${w.country?' · '+esc(w.country):''}${st>0?' · осталось '+st:''}</div></div>
+          <button class="mini stopon" data-a="wstop">СТОП</button>
+        </div>`);
+        row.querySelector('[data-a="wstop"]').onclick=()=>{ delete S.wstop[id]; save(); fill(); };
+        list.appendChild(row);
+      });
+    }
   }
   fill();
   if(S.query) setTimeout(()=>{inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);},0);
   bt.innerHTML='';
   const paste=el('<button class="btn">Вставить текстом</button>');
-  paste.onclick=()=>{ S.sheet={type:'stoptext',text:'',replace:false}; render(); };
+  paste.onclick=()=>{ S.sheet={type:'stoptext',text:'',replace:false,pick:{}}; render(); };
   bt.appendChild(paste);
   const clr=el('<button class="btn ghost">Снять все</button>');
-  clr.onclick=()=>{ if(confirm('Снять все стопы и лимиты?')){S.stop={};S.limits={};save();fill();} };
+  clr.onclick=()=>{ if(confirm('Снять все стопы, гоу и лимиты?')){S.stop={};S.go={};S.limits={};S.wstop={};save();fill();} };
   bt.appendChild(clr);
 }
 
 function renderWine(tb,mn,bt){
   bt.style.display='none'; bt.innerHTML='';
-  tb.innerHTML=`<button class="back" id="bk">‹ Зал</button><h1>Винная карта <span class="sub">бутылки · ${wines.length}</span></h1>`;
+  const stopN=Object.keys(S.wstop).length;
+  tb.innerHTML=`<button class="back" id="bk">‹ Зал</button><h1>Винная карта <span class="sub">бутылки · ${wines.length}${stopN?' · стоп '+stopN:''}</span></h1>`;
   tb.querySelector('#bk').onclick=()=>{S.screen='floor';S.wq='';render();};
   mn.innerHTML='';
   const sw=searchBox('Поиск: страна, сорт, название…', S.wq||'', v=>{S.wq=v;fill();});
@@ -1546,7 +1754,14 @@ function renderWine(tb,mn,bt){
     src.forEach(w=>{
       const head = w.cat+(w.country?' · '+w.country:'');
       if(head!==curHead){ curHead=head; list.appendChild(el(`<div class="zone-title">${esc(head)}</div>`)); }
-      list.appendChild(el(`<div class="stoprow"><div class="sn">${esc(w.name)}${w.meta?`<div class="sc">${esc(w.meta)}</div>`:''}</div><div class="wprice">${money(w.price)} ₸</div></div>`));
+      const id=slug(w.name), st=S.wstop[id];
+      const tag = st===undefined ? '' : (st>0?`<span class="tag lim">ост. ${st}</span>`:'<span class="tag stop">стоп</span>');
+      const row=el(`<div class="stoprow"${st===0?' style="opacity:.45"':''}><div class="sn">${esc(w.name)}${tag}${w.meta?`<div class="sc">${esc(w.meta)}</div>`:''}</div><div class="wprice">${money(w.price)} ₸</div></div>`);
+      row.onclick=()=>{
+        if(S.wstop[id]===undefined) S.wstop[id]=0; else delete S.wstop[id];
+        save(); render();
+      };
+      list.appendChild(row);
     });
   }
   fill();
@@ -1848,8 +2063,8 @@ function renderSheet(){
   }
 
   else if(t==='stoptext'){
-    sh.appendChild(el(`<h2>Стоп-лист текстом</h2><div class="sh-sub">Вставь сообщение из группы — позиции распознаются сами</div>`));
-    const ta=el(`<div class="field"><textarea id="st" rows="5" placeholder="Стоп на сегодня:&#10;- Рибай&#10;- Дорадо целиком&#10;Греческий салат, хумус">${esc(S.sheet.text)}</textarea></div>`);
+    sh.appendChild(el(`<h2>Стоп-лист текстом</h2><div class="sh-sub">Вставь сообщение из группы — стопы, ограничения и гоу распознаются сами</div>`));
+    const ta=el(`<div class="field"><textarea id="st" rows="5" placeholder="КУХНЯ ОГРАНИЧЕНИЕ:&#10;Щёки с пюре 6 порций&#10;&#10;СТОП ЛИСТ БАР&#10;Текила:&#10;Avion&#10;Все авторские коктейли">${esc(S.sheet.text)}</textarea></div>`);
     sh.appendChild(ta);
     if(navigator.clipboard&&navigator.clipboard.readText){
       const pb=el('<button class="smallbtn ghost" style="margin:-8px 0 14px">Вставить из буфера</button>');
@@ -1871,42 +2086,88 @@ function renderSheet(){
     const k=el('<button class="btn green">Поставить стоп</button>');
     acts.append(c,k); sh.appendChild(acts);
 
-    let res={matched:[],unknown:[],ambiguous:[]};
+    let res={actions:[],suggest:[],unknown:[],choose:[],notes:[]};
+    const label=r=>[r.go?'ГОУ':(r.stop?'СТОП':''),r.limit!=null?'лим. '+r.limit:''].filter(Boolean).join(' · ');
+    const mkRec=(line,target,qty,mode)=>({line,target,limit:qty!=null?qty:null,go:mode==='go',stop:qty==null&&mode!=='go'});
+    const picked=()=>{
+      const outp=res.suggest.filter((r,i)=>S.sheet.pick['s'+i]);
+      res.choose.forEach((ch,i)=>{
+        const j=S.sheet.pick['c'+i];
+        if(j!==undefined&&ch.items[j]) outp.push(mkRec(ch.line,ch.items[j],ch.qty,ch.mode));
+      });
+      return outp;
+    };
     function preview(){
       res=parseStopText(S.sheet.text);
       prev.innerHTML='';
-      if(!S.sheet.text.trim()){ k.disabled=true; k.textContent='Поставить стоп'; return; }
-      if(res.matched.length){
-        prev.appendChild(el(`<div class="okbox"><b>Распознано: ${res.matched.length}</b><br>${res.matched.map(m=>esc(m.dish.name)).join(' · ')}</div>`));
+      const apply=()=>res.actions.length+picked().length;
+      if(!S.sheet.text.trim()){ k.disabled=true; k.textContent='Применить'; return; }
+      if(res.actions.length){
+        prev.appendChild(el(`<div class="okbox"><b>Распознано: ${res.actions.length}</b><br>${
+          res.actions.map(r=>`${r.near?'≈ ':''}${esc(r.target.name)}${r.target.kind==='wine'?' 🍷':''} — <b>${label(r)}</b>`).join('<br>')
+        }</div>`));
       }
-      if(res.ambiguous.length){
-        prev.appendChild(el(`<div class="warnbox"><b>⚠ Непонятно, что именно: ${res.ambiguous.length}</b>${
-          res.ambiguous.map(a=>`<br>«${esc(a.line)}» → ${a.dishes.map(d=>esc(d.name)).join(' / ')}`).join('')
-        }<br><span style="opacity:.75">Стоп не поставлю — отметь вручную в списке.</span></div>`));
+      if(res.notes.length){
+        prev.appendChild(el(`<div class="okbox" style="opacity:.85">${
+          res.notes.map(n=>`«${esc(n.line)}» → группа целиком, ${n.count} поз.`).join('<br>')
+        }</div>`));
+      }
+      if(res.suggest.length){
+        const box=el(`<div class="warnbox"><b>⚠ Похоже на опечатку: ${res.suggest.length}</b><div style="opacity:.75;margin:3px 0 6px">Нажми, если это оно.</div></div>`);
+        res.suggest.forEach((r,i)=>{
+          const b=el(`<button class="chip ${S.sheet.pick['s'+i]?'on':''}" style="margin:3px 4px 0 0;text-align:left">«${esc(r.line)}» → ${esc(r.target.name)}</button>`);
+          b.onclick=()=>{ S.sheet.pick['s'+i]=!S.sheet.pick['s'+i]; preview(); };
+          box.appendChild(b);
+        });
+        prev.appendChild(box);
+      }
+      if(res.choose.length){
+        const box=el(`<div class="warnbox"><b>⚠ Нужно выбрать: ${res.choose.length}</b><div style="opacity:.75;margin:3px 0 6px">Сам не угадываю — ткни нужное.</div></div>`);
+        res.choose.forEach((ch,i)=>{
+          box.appendChild(el(`<div style="margin-top:6px">«${esc(ch.line)}»</div>`));
+          ch.items.forEach((it,j)=>{
+            const b=el(`<button class="chip ${S.sheet.pick['c'+i]===j?'on':''}" style="margin:3px 4px 0 0;text-align:left">${esc(it.name)}${it.kind==='wine'?' 🍷':''}</button>`);
+            b.onclick=()=>{ S.sheet.pick['c'+i]=S.sheet.pick['c'+i]===j?undefined:j; preview(); };
+            box.appendChild(b);
+          });
+        });
+        prev.appendChild(box);
       }
       if(res.unknown.length){
-        prev.appendChild(el(`<div class="warnbox"><b>⚠ Нет в меню: ${res.unknown.length}</b><br>${
+        prev.appendChild(el(`<div class="warnbox"><b>⚠ Нет в меню и винной карте: ${res.unknown.length}</b><br>${
           res.unknown.map(u=>'«'+esc(u)+'»').join(', ')
         }<br><span style="opacity:.75">Проверь название или добавь позицию в меню в настройках.</span></div>`));
       }
-      if(!res.matched.length&&!res.unknown.length&&!res.ambiguous.length){
+      if(!res.actions.length&&!res.unknown.length&&!res.choose.length&&!res.suggest.length){
         prev.appendChild(el('<div class="warnbox">В тексте не нашлось ни одной позиции</div>'));
       }
-      k.disabled=!res.matched.length;
-      k.textContent=res.matched.length?`Поставить стоп (${res.matched.length})`:'Поставить стоп';
+      k.disabled=!apply();
+      k.textContent=apply()?`Применить (${apply()})`:'Применить';
     }
     // превью пересобираем точечно, без render() — иначе фокус в поле слетает на каждом символе
-    ta.querySelector('#st').oninput=e=>{ S.sheet.text=e.target.value; preview(); };
+    ta.querySelector('#st').oninput=e=>{ S.sheet.text=e.target.value; S.sheet.pick={}; preview(); };
     preview();
 
     k.onclick=()=>{
-      if(!res.matched.length) return;
-      if(S.sheet.replace) S.stop={};
-      res.matched.forEach(m=>{ S.stop[m.dish.id]=1; delete S.go[m.dish.id]; });
-      const skipped=res.unknown.length+res.ambiguous.length;
-      const n=res.matched.length;
+      const chosen=picked();
+      const list=res.actions.concat(chosen);
+      if(!list.length) return;
+      if(S.sheet.replace){ S.stop={}; S.go={}; S.limits={}; S.wstop={}; }
+      list.forEach(r=>{
+        const id=r.target.id;
+        if(r.target.kind==='wine'){
+          // у бутылок нет гоу и счётчика заказов: 0 — стоп, N — «осталось N»
+          if(r.go) delete S.wstop[id];
+          else S.wstop[id]=r.limit!=null?r.limit:0;
+          return;
+        }
+        if(r.go){ S.go[id]=1; delete S.stop[id]; }
+        if(r.stop){ S.stop[id]=1; delete S.go[id]; }
+        if(r.limit!=null) S.limits[id]=r.limit;
+      });
+      const skipped=res.unknown.length+res.choose.length+res.suggest.length-chosen.length;
       save(); S.sheet=null; render();
-      toast('Стоп: '+n+(skipped?' · не распознано: '+skipped:''));
+      toast('Применено: '+list.length+(skipped?' · не распознано: '+skipped:''));
     };
   }
 
