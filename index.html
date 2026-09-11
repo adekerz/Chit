@@ -144,6 +144,8 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
 .rowbtn{width:100%;text-align:left;padding:14px 12px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--fg);font-size:14.5px;margin-bottom:7px;cursor:pointer}
 .rowbtn.danger{color:#E0847C}
 .alginfo{background:rgba(169,53,44,.14);border:1px solid var(--alert);color:#E0847C;border-radius:6px;padding:9px 11px;font-size:13px;line-height:1.45;margin-bottom:14px}
+.warnbox{background:rgba(140,90,26,.16);border:1px solid var(--precheck);color:#D2A05C;border-radius:6px;padding:9px 11px;font-size:12.5px;line-height:1.5;margin-bottom:10px}
+.okbox{background:rgba(47,123,79,.14);border:1px solid var(--busy);color:#7FBF9A;border-radius:6px;padding:9px 11px;font-size:12.5px;line-height:1.5;margin-bottom:10px}
 .wineinfo{color:#C9A24A;font-size:13.5px;line-height:1.4;margin:-8px 0 14px;padding:2px}
 
 /* settings / stop */
@@ -941,6 +943,68 @@ function matchesAllergen(dish,q){
   return (dish.allergens||[]).some(a=>textMatch(a,q));
 }
 
+/* ---------- разбор стоп-листа, вставленного текстом из группы ----------
+   Здесь НЕ используется нечёткий textMatch (подпоследовательность): «мск» не должно
+   случайно встать стопом на «Масала». Стоп — зона ошибки перед гостем, поэтому
+   совпадение только по реальному вхождению слов, а всё спорное уходит в предупреждение. */
+function normName(s){ return (s||'').toLowerCase().replace(/ё/g,'е').replace(/[^a-zа-я0-9]+/g,' ').trim(); }
+// в JS \b и \w не понимают кириллицу, поэтому границы слов ловим пробелами
+function hasWords(hay,needle){ return (' '+hay+' ').includes(' '+needle+' '); }
+const STOP_NOISE=/^(всем\s+)?(привет[а-яё]*|здравствуйте|добр(ое|ый|ой)\s+[а-яё]+|на\s+сегодня|сегодня|стоп|стоп[\s-]*лист|кухня|бар|важно|upd|апдейт|обновление|update)$/i;
+function cleanStopLine(raw){
+  let s=(raw||'')
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2190}-\u{27BF}\u{FE0F}\u{2022}]/gu,' ')  // эмодзи, стрелки, буллеты
+    .replace(/^[\s\-–—*·>+.]+/,'')          // маркеры списка
+    .replace(/^\d+[.)]\s*/,'')              // «1. » / «1) »
+    .trim();
+  s=s.replace(/^стоп[\s-]*лист(?![а-яё])[\s:—–-]*/i,'').replace(/^стоп(?![а-яё])[\s:—–-]+/i,'');
+  s=s.replace(/\s*[—–-]\s*(нет|закончил(ся|ась|ось|ись)|стоп|отсутствует)\s*$/i,'');
+  s=s.replace(/\s*\(?\s*(осталось|остаток|ост)\.?\s*\d+\s*(шт|порц[а-яё]*)?\.?\s*\)?$/i,'');
+  s=s.replace(/\s*[—–(-]?\s*\d+\s*(шт|порц[а-яё]*|пор)\.?\)?$/i,'');
+  return s.replace(/[.,;:!]+$/,'').trim();
+}
+function findDishByText(txt){
+  const q=normName(txt);
+  if(!q) return {score:0,dishes:[]};
+  let best=0, hits=[];
+  menu.dishes.forEach(d=>{
+    const n=normName(d.name);
+    let sc=0;
+    if(n===q) sc=100;
+    else if(hasWords(n,q)) sc=80;        // «Дорадо» → «Дорадо целиком на хоспере»
+    else if(hasWords(q,n)) sc=70;        // «Рибай стейк» → «Рибай»
+    else {
+      const words=q.split(' ').filter(w=>w.length>2);
+      if(words.length&&words.every(w=>hasWords(n,w))) sc=60;
+    }
+    if(!sc) return;
+    if(sc>best){ best=sc; hits=[d]; } else if(sc===best) hits.push(d);
+  });
+  return {score:best,dishes:hits};
+}
+function parseStopText(text){
+  const out={matched:[],unknown:[],ambiguous:[]}, seen={};
+  const add=(line,d)=>{ if(!seen[d.id]){ seen[d.id]=1; out.matched.push({line,dish:d}); } };
+  const take=(line,res)=>{
+    if(res.score>=60&&res.dishes.length===1){ add(line,res.dishes[0]); return; }
+    if(res.score>=60) out.ambiguous.push({line,dishes:res.dishes.slice(0,4)});
+    else out.unknown.push(line);
+  };
+  (text||'').split('\n').forEach(raw=>{
+    const line=cleanStopLine(raw);
+    if(!line||!/[a-zа-яё]/i.test(line)) return;
+    if(STOP_NOISE.test(line)) return;
+    const whole=findDishByText(line);
+    // строгое совпадение целой строкой выигрывает: в названиях есть запятые
+    // («Томаты ким чи, кунжут ким чи») — такую строку резать нельзя
+    if(whole.score>=80&&whole.dishes.length===1){ add(line,whole.dishes[0]); return; }
+    const parts=line.split(/[,;]|\s+и\s+|\s*\/\s*/).map(cleanStopLine).filter(p=>p&&/[a-zа-яё]/i.test(p));
+    if(parts.length>1){ parts.forEach(p=>take(p,findDishByText(p))); return; }
+    take(line,whole);
+  });
+  return out;
+}
+
 /* ---------- helpers ---------- */
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 function order(t){ return S.orders[t]; }
@@ -1456,7 +1520,10 @@ function renderStop(tb,mn,bt){
   fill();
   if(S.query) setTimeout(()=>{inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);},0);
   bt.innerHTML='';
-  const clr=el('<button class="btn ghost">Снять все стопы</button>');
+  const paste=el('<button class="btn">Вставить текстом</button>');
+  paste.onclick=()=>{ S.sheet={type:'stoptext',text:'',replace:false}; render(); };
+  bt.appendChild(paste);
+  const clr=el('<button class="btn ghost">Снять все</button>');
   clr.onclick=()=>{ if(confirm('Снять все стопы и лимиты?')){S.stop={};S.limits={};save();fill();} };
   bt.appendChild(clr);
 }
@@ -1778,6 +1845,69 @@ function renderSheet(){
     const cl=el('<button class="btn ghost" style="width:100%">Готово</button>');
     cl.onclick=()=>{S.sheet=null;render();};
     sh.appendChild(cl);
+  }
+
+  else if(t==='stoptext'){
+    sh.appendChild(el(`<h2>Стоп-лист текстом</h2><div class="sh-sub">Вставь сообщение из группы — позиции распознаются сами</div>`));
+    const ta=el(`<div class="field"><textarea id="st" rows="5" placeholder="Стоп на сегодня:&#10;- Рибай&#10;- Дорадо целиком&#10;Греческий салат, хумус">${esc(S.sheet.text)}</textarea></div>`);
+    sh.appendChild(ta);
+    if(navigator.clipboard&&navigator.clipboard.readText){
+      const pb=el('<button class="smallbtn ghost" style="margin:-8px 0 14px">Вставить из буфера</button>');
+      pb.onclick=async()=>{
+        try{ const t2=await navigator.clipboard.readText(); if(t2){ S.sheet.text=t2; render(); } }
+        catch(e){ toast('Буфер недоступен — вставь вручную'); }
+      };
+      sh.appendChild(pb);
+    }
+    const prev=el('<div></div>');
+    sh.appendChild(prev);
+
+    const rep=el(`<label class="checkrow"><input type="checkbox" ${S.sheet.replace?'checked':''}> Сначала снять текущие стопы</label>`);
+    rep.querySelector('input').onchange=e=>{ S.sheet.replace=e.target.checked; };
+    sh.appendChild(rep);
+
+    const acts=el('<div class="acts" style="margin-top:14px"></div>');
+    const c=el('<button class="btn ghost">Отмена</button>'); c.onclick=()=>{S.sheet=null;render();};
+    const k=el('<button class="btn green">Поставить стоп</button>');
+    acts.append(c,k); sh.appendChild(acts);
+
+    let res={matched:[],unknown:[],ambiguous:[]};
+    function preview(){
+      res=parseStopText(S.sheet.text);
+      prev.innerHTML='';
+      if(!S.sheet.text.trim()){ k.disabled=true; k.textContent='Поставить стоп'; return; }
+      if(res.matched.length){
+        prev.appendChild(el(`<div class="okbox"><b>Распознано: ${res.matched.length}</b><br>${res.matched.map(m=>esc(m.dish.name)).join(' · ')}</div>`));
+      }
+      if(res.ambiguous.length){
+        prev.appendChild(el(`<div class="warnbox"><b>⚠ Непонятно, что именно: ${res.ambiguous.length}</b>${
+          res.ambiguous.map(a=>`<br>«${esc(a.line)}» → ${a.dishes.map(d=>esc(d.name)).join(' / ')}`).join('')
+        }<br><span style="opacity:.75">Стоп не поставлю — отметь вручную в списке.</span></div>`));
+      }
+      if(res.unknown.length){
+        prev.appendChild(el(`<div class="warnbox"><b>⚠ Нет в меню: ${res.unknown.length}</b><br>${
+          res.unknown.map(u=>'«'+esc(u)+'»').join(', ')
+        }<br><span style="opacity:.75">Проверь название или добавь позицию в меню в настройках.</span></div>`));
+      }
+      if(!res.matched.length&&!res.unknown.length&&!res.ambiguous.length){
+        prev.appendChild(el('<div class="warnbox">В тексте не нашлось ни одной позиции</div>'));
+      }
+      k.disabled=!res.matched.length;
+      k.textContent=res.matched.length?`Поставить стоп (${res.matched.length})`:'Поставить стоп';
+    }
+    // превью пересобираем точечно, без render() — иначе фокус в поле слетает на каждом символе
+    ta.querySelector('#st').oninput=e=>{ S.sheet.text=e.target.value; preview(); };
+    preview();
+
+    k.onclick=()=>{
+      if(!res.matched.length) return;
+      if(S.sheet.replace) S.stop={};
+      res.matched.forEach(m=>{ S.stop[m.dish.id]=1; delete S.go[m.dish.id]; });
+      const skipped=res.unknown.length+res.ambiguous.length;
+      const n=res.matched.length;
+      save(); S.sheet=null; render();
+      toast('Стоп: '+n+(skipped?' · не распознано: '+skipped:''));
+    };
   }
 
   document.body.appendChild(sc);
