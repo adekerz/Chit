@@ -82,7 +82,12 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
 .qrow{display:flex;align-items:center;gap:6px;margin-top:8px}
 .qbtn{width:34px;height:30px;border-radius:5px;border:1px solid #C9C2B0;background:transparent;color:var(--ink);font-size:17px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 .qbtn:active{background:#EFE9DA}
-.qbtn.del{color:#A9352C;border-color:#DCC3BF;margin-left:4px;font-size:14px}
+.qbtn.del{color:#A9352C;border-color:#DCC3BF;font-size:14px}
+.qbtn.cmt{font-size:13px;margin-left:4px}
+.qbtn.cmt.on{background:var(--ink);border-color:var(--ink)}
+.item.flash{animation:flashrow 1.1s ease-out}
+@keyframes flashrow{0%{box-shadow:0 0 0 3px rgba(68,81,166,.85)}100%{box-shadow:0 0 0 0 rgba(68,81,166,0)}}
+@media (prefers-reduced-motion:reduce){.item.flash{animation:none}}
 .qn{font-family:var(--mono);font-size:15px;font-weight:600;min-width:22px;text-align:center;color:var(--ink)}
 .qsum{margin-left:auto;font-family:var(--mono);font-size:12.5px;color:var(--ink-dim)}
 .flags{display:flex;flex-direction:column;gap:5px;flex-shrink:0}
@@ -193,7 +198,7 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
 .tag.time{background:var(--bg3);color:#9AA3B0;font-family:var(--mono)}
 .chip-t{font-family:var(--mono);font-size:10.5px;opacity:.62;margin-left:6px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--fg);color:var(--bg);padding:11px 18px;border-radius:22px;font-size:13.5px;font-weight:600;z-index:80;box-shadow:0 6px 20px rgba(0,0,0,.5);pointer-events:none;max-width:86vw;text-align:center}
-.toast.top{bottom:auto;top:calc(62px + env(safe-area-inset-top))}
+.toast.overdrawer{bottom:calc(var(--drawer-h,0px) + 14px)}
 
 /* --- подтверждение пробития: стол + что именно пробито --- */
 .punchcard{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--bg2);border:1px solid var(--busy);border-radius:12px;padding:12px 16px;z-index:81;box-shadow:0 10px 30px rgba(0,0,0,.55);max-width:min(92vw,360px);max-height:40vh;overflow-y:auto;-webkit-overflow-scrolling:touch;cursor:pointer}
@@ -236,7 +241,7 @@ const store = {
 /* ---------- default menu (replace in settings) ---------- */
 /* Версия приложения. Поднимать при каждом деплое — по ней в настройках видно,
    доехало обновление на телефон или на экране всё ещё старая копия. */
-const APP_VERSION='12.09.2026 · 1';
+const APP_VERSION='12.09.2026 · 2';
 
 const DEFAULT_MENU = `# Кухня
 ## Закуски
@@ -1484,22 +1489,31 @@ function openTable(num,guests){
 }
 function addItem(d,guest,qty,mods,comment){
   const o=order(S.activeTable); if(!o) return;
-  o.items.push({id:uid(),dishId:d.id,name:d.name,price:dishPrice(d,mods||{}),qty,guest,mods:mods||{},
+  const it={id:uid(),dishId:d.id,name:d.name,price:dishPrice(d,mods||{}),qty,guest,mods:mods||{},
     comment:comment||'',punchedAt:null,delivered:false,
-    cook:cookMinutes(d,mods||{}),notified:false});
+    cook:cookMinutes(d,mods||{}),notified:false};
+  o.items.push(it);
+  S.scrollTo=it.id;   // новая позиция должна быть видна поверх шторки, а не за ней
   save();
+  return it;
 }
 function punchAll(){
   const o=order(S.activeTable); if(!o) return;
   const now=Date.now(); const just=[];
   o.items.forEach(i=>{ if(!i.punchedAt){i.punchedAt=now;i.notified=false;just.push(i);} });
   save();
-  if(just.length) showPunchCard(o.table, just); else render();
+  if(just.length){ S.scrollTo=just[0].id; showPunchCard(o.table, just); } else render();
 }
 
 /* карточка-подтверждение: какой стол и что именно только что пробито */
 let punchCardT=null;
 function showPunchCard(table, items){
+  // при открытой шторке карточка легла бы на поиск, а саму пробитую позицию и так
+  // видно: она подтянута к верху и подсвечена — хватит короткого тоста
+  if(S.menuOpen){
+    toast('Стол '+table+': пробито '+(items.length===1?items[0].name:items.length+' поз.'));
+    return;
+  }
   S.punchCard={table, items: items.map(i=>({name:i.name, qty:i.qty}))};
   render();
   clearTimeout(punchCardT);
@@ -1527,7 +1541,7 @@ function render(){
   if(S.screen==='table' && S.menuOpen) renderMenuDrawer();
   if(S.sheet) renderSheet();
   // при открытой шторке тост уводим наверх: внизу он ложится на список блюд
-  if(S.toast){ const t=document.createElement('div'); t.className='toast'+(S.menuOpen?' top':''); t.textContent=S.toast; document.body.appendChild(t); }
+  if(S.toast){ const t=document.createElement('div'); t.className='toast'+(S.menuOpen?' overdrawer':''); t.textContent=S.toast; document.body.appendChild(t); }
   if(S.punchCard){
     const pc=el(`<div class="punchcard">
       <div class="pc-h">✓ Стол ${esc(S.punchCard.table)} — пробито</div>
@@ -1536,9 +1550,20 @@ function render(){
     pc.onclick=()=>{ clearTimeout(punchCardT); S.punchCard=null; render(); };
     document.body.appendChild(pc);
   }
+  fitDrawer();   // до восстановления прокрутки: меняет высоту содержимого
   mn.scrollTop=keepMain;
   const newList=document.querySelector('.md-list');
   if(newList) newList.scrollTop=keepList;
+  // только что пробитая или добавленная позиция — к верху видимой части:
+  // при открытой шторке и клавиатуре от заказа остаётся узкая полоса сверху
+  if(S.scrollTo){
+    const row=mn.querySelector(`.item[data-iid="${S.scrollTo}"]`);
+    if(row){
+      mn.scrollTop=Math.max(0, mn.scrollTop+row.getBoundingClientRect().top-mn.getBoundingClientRect().top-6);
+      row.classList.add('flash');
+    }
+    S.scrollTo=null;
+  }
   if(keepFocus&&!S.sheet){
     const inp=keepFocus==='drawer'?document.querySelector('.menudrawer .search'):document.querySelector('main .search');
     if(inp&&document.activeElement!==inp){
@@ -1731,6 +1756,7 @@ function itemRow(i){
         <button class="qbtn" data-a="minus">−</button>
         <span class="qn">${i.qty}</span>
         <button class="qbtn" data-a="plus">+</button>
+        <button class="qbtn cmt ${i.comment?'on':''}" data-a="cmt">💬</button>
         <button class="qbtn del" data-a="del">✕</button>
         <span class="qsum">${money(i.price*i.qty)} ₸</span>
       </div>
@@ -1745,9 +1771,15 @@ function itemRow(i){
     if(e.target.closest('.qrow')) return;   // кнопки количества и удаления — не открывают карточку
     S.sheet={type:'item',itemId:i.id}; render();
   };
+  row.querySelector('[data-a="cmt"]').onclick=()=>{ S.sheet={type:'comment',itemId:i.id}; render(); };
   row.querySelector('[data-a="p"]').onclick=()=>{
     if(i.punchedAt){i.punchedAt=null;i.delivered=false;i.notified=false;save();render();}
-    else {i.punchedAt=Date.now();i.notified=false;const o=order(S.activeTable);save();showPunchCard(o.table,[i]);}
+    else {
+      i.punchedAt=Date.now(); i.notified=false;
+      const o=order(S.activeTable);
+      S.scrollTo=i.id;      // подтягиваем пробитую позицию к верху экрана
+      save(); showPunchCard(o.table,[i]);
+    }
   };
   row.querySelector('[data-a="d"]').onclick=()=>{ i.delivered=!i.delivered; save(); render(); };
   row.querySelector('[data-a="plus"]').onclick=()=>{ i.qty++; save(); render(); };
@@ -1783,18 +1815,30 @@ function renderMenuDrawer(){
   wrap.appendChild(list);
   renderMenuList(list);
   document.body.appendChild(wrap);
-  fitDrawer();
   if(S.query){ const inp=sw.querySelector('input'); setTimeout(()=>{inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);},0); }
 }
 /* клавиатура перекрывала шторку: поднимаем её на высоту клавиатуры и ужимаем
    по реальной видимой области, иначе список блюд уезжает под клавиатуру */
 function fitDrawer(){
-  const d=document.querySelector('.menudrawer'); if(!d) return;
+  const mn=document.getElementById('main');
+  const d=document.querySelector('.menudrawer');
+  if(!d){
+    if(mn) mn.style.paddingBottom='';
+    document.documentElement.style.setProperty('--drawer-h','0px');
+    return;
+  }
   const vv=window.visualViewport;
-  if(!vv){ d.style.bottom=''; d.style.maxHeight=''; return; }
-  const kb=Math.max(0, Math.round(window.innerHeight-vv.height-vv.offsetTop));
-  d.style.bottom=kb+'px';
-  d.style.maxHeight=Math.max(200, Math.round(vv.height*(kb>120?0.72:0.56)))+'px';
+  if(vv){
+    const kb=Math.max(0, Math.round(window.innerHeight-vv.height-vv.offsetTop));
+    d.style.bottom=kb+'px';
+    d.style.maxHeight=Math.max(200, Math.round(vv.height*(kb>120?0.6:0.56)))+'px';
+  }
+  // запас снизу под шторкой: без него нижние позиции навсегда прячутся за ней.
+  // Берём почти целый экран, чтобы к верху могла подняться даже последняя позиция
+  if(mn) mn.style.paddingBottom=Math.round(window.innerHeight*0.75)+'px';
+  // тост при открытой шторке встаёт в просвет над ней, а не на список и не на заказ
+  const kb2=window.visualViewport?Math.max(0,Math.round(window.innerHeight-window.visualViewport.height-window.visualViewport.offsetTop)):0;
+  document.documentElement.style.setProperty('--drawer-h',Math.round(d.getBoundingClientRect().height+kb2)+'px');
 }
 if(window.visualViewport){
   window.visualViewport.addEventListener('resize',fitDrawer);
@@ -2300,6 +2344,27 @@ function renderSheet(){
     const k=el(`<button class="btn green" ${ready?'':'disabled'}>Закрыть стол</button>`);
     k.onclick=()=>{ delete S.orders[S.activeTable]; S.sheet=null; S.screen='floor'; save(); render(); toast('Стол '+o.table+' закрыт'); };
     acts.append(c,k); sh.appendChild(acts);
+  }
+
+  else if(t==='comment'){
+    const o=order(S.activeTable);
+    const i=o&&o.items.find(x=>x.id===S.sheet.itemId);
+    if(!i){S.sheet=null;render();return;}
+    sh.appendChild(el(`<h2>💬 ${esc(i.name)}</h2><div class="sh-sub">Гость ${i.guest} · ${i.qty} шт</div>`));
+    sh.appendChild(quickComments(i.comment, v=>{ i.comment=v; save(); render(); }));
+    const ta=el(`<div class="field"><textarea id="cmx" rows="2" placeholder="или впиши своё">${esc(i.comment)}</textarea></div>`);
+    ta.querySelector('#cmx').onchange=e=>{ i.comment=e.target.value.trim(); save(); };
+    sh.appendChild(ta);
+    const acts=el('<div class="acts"></div>');
+    const cl=el('<button class="btn ghost">Очистить</button>');
+    cl.onclick=()=>{ i.comment=''; save(); render(); };
+    const k=el('<button class="btn">Готово</button>');
+    k.onclick=()=>{
+      const v=sh.querySelector('#cmx').value.trim();
+      if(v!==i.comment){ i.comment=v; save(); }
+      S.sheet=null; render();
+    };
+    acts.append(cl,k); sh.appendChild(acts);
   }
 
   else if(t==='table'){
