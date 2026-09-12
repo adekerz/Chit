@@ -241,7 +241,7 @@ const store = {
 /* ---------- default menu (replace in settings) ---------- */
 /* Версия приложения. Поднимать при каждом деплое — по ней в настройках видно,
    доехало обновление на телефон или на экране всё ещё старая копия. */
-const APP_VERSION='12.09.2026 · 2';
+const APP_VERSION='12.09.2026 · 3';
 
 const DEFAULT_MENU = `# Кухня
 ## Закуски
@@ -1331,6 +1331,22 @@ function parseStopText(text){
 /* ---------- helpers ---------- */
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 function order(t){ return S.orders[t]; }
+/* Ключ заказа — зона + номер, а не просто номер: в карте зала «1» бывает и в
+   основном зале, и в лаундже, и на одном ключе они открывались одним столом. */
+function tkey(zone,num){ return (zone||'')+'|'+num; }
+let _numZones=null,_numZonesSrc=null;
+function numZones(){
+  if(_numZonesSrc!==S.tablesText){
+    _numZonesSrc=S.tablesText; _numZones={};
+    parseTables(S.tablesText).forEach(z=>z.tables.forEach(n=>{_numZones[n]=(_numZones[n]||0)+1;}));
+  }
+  return _numZones;
+}
+// номер показываем как есть, зону дописываем только когда такой номер не один
+function tableLabel(o){
+  if(!o) return '';
+  return (o.zone&&numZones()[String(o.table)]>1)?o.table+' · '+o.zone:String(o.table);
+}
 function usedCount(dishId){
   let n=0;
   Object.values(S.orders).forEach(o=>o.items.forEach(i=>{ if(i.dishId===dishId) n+=i.qty; }));
@@ -1445,9 +1461,9 @@ function checkReady(){
     save();
     if(fresh.length===1){
       const f=fresh[0];
-      notify('Готово · стол '+f.o.table, f.i.name+' — забрать');
+      notify('Готово · стол '+tableLabel(f.o), f.i.name+' — забрать');
     } else {
-      notify('Готово: '+fresh.length+' поз.', fresh.map(f=>'ст.'+f.o.table+' '+f.i.name).join(', '));
+      notify('Готово: '+fresh.length+' поз.', fresh.map(f=>'ст.'+tableLabel(f.o)+' '+f.i.name).join(', '));
     }
   }
   return changed;
@@ -1470,7 +1486,25 @@ async function boot(){
   menu=parseMenu(S.menuText);
   wines=parseWine(WINE_CARD);
   pairings=parsePairings(PAIRING_TEXT);
+  migrateTableKeys();
   render();
+}
+/* раньше заказ лежал под голым номером стола — переводим на ключ «зона|номер»,
+   иначе после обновления открытые столы потерялись бы */
+function migrateTableKeys(){
+  const zones=parseTables(S.tablesText);
+  const zoneOf=num=>{ for(const z of zones){ if(z.tables.includes(String(num))) return z.name; } return ''; };
+  const fixed={}; let moved=false;
+  Object.keys(S.orders).forEach(k=>{
+    const o=S.orders[k];
+    if(!o) return;
+    if(o.key===k&&k.includes('|')){ fixed[k]=o; return; }
+    const num=o.table!==undefined?String(o.table):k;
+    o.table=num; o.zone=o.zone||zoneOf(num); o.key=tkey(o.zone,num);
+    fixed[o.key]=o; moved=true;
+    if(S.activeTable===k) S.activeTable=o.key;
+  });
+  if(moved){ S.orders=fixed; save(); }
 }
 
 /* ---------- toast ---------- */
@@ -1482,10 +1516,10 @@ function toast(msg){
 }
 
 /* ---------- actions ---------- */
-function openTable(num,guests){
-  S.orders[num]={table:num,guests,items:[],openedAt:Date.now(),status:'open',
+function openTable(key,num,zone,guests){
+  S.orders[key]={key,table:num,zone:zone||'',guests,items:[],openedAt:Date.now(),status:'open',
     checks:{precheck:false,paid:false,cleared:false}};
-  S.activeTable=num; S.activeGuest=1; S.screen='table'; S.sheet=null; S.menuOpen=false; save(); render();
+  S.activeTable=key; S.activeGuest=1; S.screen='table'; S.sheet=null; S.menuOpen=false; save(); render();
 }
 function addItem(d,guest,qty,mods,comment){
   const o=order(S.activeTable); if(!o) return;
@@ -1502,7 +1536,7 @@ function punchAll(){
   const now=Date.now(); const just=[];
   o.items.forEach(i=>{ if(!i.punchedAt){i.punchedAt=now;i.notified=false;just.push(i);} });
   save();
-  if(just.length){ S.scrollTo=just[0].id; showPunchCard(o.table, just); } else render();
+  if(just.length){ S.scrollTo=just[0].id; showPunchCard(tableLabel(o), just); } else render();
 }
 
 /* карточка-подтверждение: какой стол и что именно только что пробито */
@@ -1627,8 +1661,8 @@ function renderFloor(tb,mn,bt){
     const strip=el('<div class="readybar"></div>');
     strip.appendChild(el(`<div class="rb-h">Готово — забрать (${rd.length})</div>`));
     rd.slice(0,8).forEach(({o,i,at})=>{
-      const r=el(`<div class="rb-row" data-at="${at}"><span class="rb-t">${esc(o.table)}</span><span class="rb-n">${esc(i.name)}</span><span class="rb-w">${mmss(Date.now()-at)}</span></div>`);
-      r.onclick=()=>{S.activeTable=o.table;S.activeGuest='all';S.screen='table';S.menuOpen=false;render();};
+      const r=el(`<div class="rb-row" data-at="${at}"><span class="rb-t">${esc(tableLabel(o))}</span><span class="rb-n">${esc(i.name)}</span><span class="rb-w">${mmss(Date.now()-at)}</span></div>`);
+      r.onclick=()=>{S.activeTable=o.key;S.activeGuest='all';S.screen='table';S.menuOpen=false;render();};
       strip.appendChild(r);
     });
     mn.appendChild(strip);
@@ -1638,8 +1672,9 @@ function renderFloor(tb,mn,bt){
     if(z.name) mn.appendChild(el(`<div class="zone-title">${esc(z.name)}</div>`));
     const g=el('<div class="grid"></div>');
     z.tables.forEach(num=>{
-      const o=order(num), st=orderStatus(o), up=unpunched(o), rc=readyCount(o);
-      const cell=el(`<div class="tcell ${st==='free'?'':st}" data-table="${esc(num)}">
+      const key=tkey(z.name,num);
+      const o=order(key), st=orderStatus(o), up=unpunched(o), rc=readyCount(o);
+      const cell=el(`<div class="tcell ${st==='free'?'':st}" data-table="${esc(key)}">
         <div class="num">${esc(num)}</div>
         <div class="meta">
           <span>${o?('👥'+o.guests):'свободен'}</span>
@@ -1648,8 +1683,8 @@ function renderFloor(tb,mn,bt){
         ${rc?`<div class="badge rdy">${rc} готово</div>`:(up?`<div class="badge">${up}</div>`:'')}
       </div>`);
       cell.onclick=()=>{
-        if(o){ S.activeTable=num; S.activeGuest=1; S.screen='table'; S.menuOpen=false; render(); }
-        else { S.sheet={type:'open',table:num,guests:2}; render(); }
+        if(o){ S.activeTable=key; S.activeGuest=1; S.screen='table'; S.menuOpen=false; render(); }
+        else { S.sheet={type:'open',key,table:num,zone:z.name,guests:2}; render(); }
       };
       g.appendChild(cell);
     });
@@ -1672,7 +1707,7 @@ function renderTable(tb,mn,bt){
   const o=order(S.activeTable);
   if(!o){ S.screen='floor'; render(); return; }
   tb.innerHTML=`<button class="back" id="bk">‹ Зал</button>
-    <h1 id="thead">Стол ${esc(o.table)} <span class="chev">▾</span> <span class="sub">${o.guests} гост. · <span id="tbl-elapsed">${mmss(Date.now()-o.openedAt)}</span></span></h1>
+    <h1 id="thead">Стол ${esc(tableLabel(o))} <span class="chev">▾</span> <span class="sub">${o.guests} гост. · <span id="tbl-elapsed">${mmss(Date.now()-o.openedAt)}</span></span></h1>
     <button class="iconbtn" id="gplus">+гость</button>`;
   tb.querySelector('#bk').onclick=()=>{S.screen='floor';S.menuOpen=false;render();};
   tb.querySelector('#thead').onclick=()=>{S.sheet={type:'table'};S.menuOpen=false;render();};
@@ -1714,7 +1749,16 @@ function renderTable(tb,mn,bt){
   const addB=el('<button class="btn">+ Блюдо</button>');
   addB.onclick=()=>{S.menuOpen=true;S.query='';render();};
   bt.appendChild(addB);
-  if(up){
+  if(!o.items.length){
+    // пустой стол закрывается одним тапом: открыл не тот — терять нечего
+    const xb=el('<button class="btn ghost">Закрыть стол</button>');
+    xb.onclick=()=>{
+      const nm=tableLabel(o);
+      delete S.orders[o.key||S.activeTable]; S.screen='floor'; S.menuOpen=false; S.sheet=null;
+      save(); render(); toast('Стол '+nm+' закрыт');
+    };
+    bt.appendChild(xb);
+  } else if(up){
     const pb=el('<button class="btn green">Пробить всё</button>');
     pb.onclick=punchAll; bt.appendChild(pb);
   } else {
@@ -1778,7 +1822,7 @@ function itemRow(i){
       i.punchedAt=Date.now(); i.notified=false;
       const o=order(S.activeTable);
       S.scrollTo=i.id;      // подтягиваем пробитую позицию к верху экрана
-      save(); showPunchCard(o.table,[i]);
+      save(); showPunchCard(tableLabel(o),[i]);
     }
   };
   row.querySelector('[data-a="d"]').onclick=()=>{ i.delivered=!i.delivered; save(); render(); };
@@ -1823,7 +1867,10 @@ function fitDrawer(){
   const mn=document.getElementById('main');
   const d=document.querySelector('.menudrawer');
   if(!d){
-    if(mn) mn.style.paddingBottom='';
+    // на экране стола запас нужен и без шторки: иначе последние позиции
+    // некуда прокручивать и пробитая строка не поднимается к верху
+    const o=S.screen==='table'?order(S.activeTable):null;
+    if(mn) mn.style.paddingBottom=(o&&o.items.length)?Math.round(window.innerHeight*0.75)+'px':'';
     document.documentElement.style.setProperty('--drawer-h','0px');
     return;
   }
@@ -2187,7 +2234,7 @@ function renderSheet(){
   const t=S.sheet.type;
 
   if(t==='open'){
-    sh.appendChild(el(`<h2>Стол ${esc(S.sheet.table)}</h2><div class="sh-sub">Сколько гостей?</div>`));
+    sh.appendChild(el(`<h2>Стол ${esc(S.sheet.table)}${S.sheet.zone&&numZones()[String(S.sheet.table)]>1?' · '+esc(S.sheet.zone):''}</h2><div class="sh-sub">Сколько гостей?</div>`));
     const f=el('<div class="field"><div class="stepper"><button id="m">−</button><span class="v" id="v"></span><button id="p">+</button></div></div>');
     f.querySelector('#v').textContent=S.sheet.guests;
     f.querySelector('#m').onclick=()=>{S.sheet.guests=Math.max(1,S.sheet.guests-1);render();};
@@ -2195,7 +2242,7 @@ function renderSheet(){
     sh.appendChild(f);
     const acts=el('<div class="acts"></div>');
     const c=el('<button class="btn ghost">Отмена</button>'); c.onclick=()=>{S.sheet=null;render();};
-    const k=el('<button class="btn">Открыть заказ</button>'); k.onclick=()=>openTable(S.sheet.table,S.sheet.guests);
+    const k=el('<button class="btn">Открыть заказ</button>'); k.onclick=()=>openTable(S.sheet.key,S.sheet.table,S.sheet.zone,S.sheet.guests);
     acts.append(c,k); sh.appendChild(acts);
   }
 
@@ -2308,11 +2355,11 @@ function renderSheet(){
     const others=Object.keys(S.orders).filter(t2=>t2!==S.activeTable);
     if(!others.length) moveF.querySelector('.chips').appendChild(el('<span style="color:var(--muted);font-size:13px">других открытых столов нет</span>'));
     others.forEach(t2=>{
-      const b=el(`<button class="chip">Стол ${esc(t2)}</button>`);
+      const dst=S.orders[t2];
+      const b=el(`<button class="chip">Стол ${esc(tableLabel(dst))}</button>`);
       b.onclick=()=>{
-        const dst=S.orders[t2];
         o.items=o.items.filter(x=>x.id!==i.id);
-        i.guest=1; dst.items.push(i); save(); S.sheet=null; render(); toast('Перенесено на стол '+t2);
+        i.guest=1; dst.items.push(i); save(); S.sheet=null; render(); toast('Перенесено на стол '+tableLabel(dst));
       };
       moveF.querySelector('.chips').appendChild(b);
     });
@@ -2329,7 +2376,7 @@ function renderSheet(){
   else if(t==='close'){
     const o=order(S.activeTable);
     const svcC=serviceAmount(o);
-    sh.appendChild(el(`<h2>Закрытие стола ${esc(o.table)}</h2><div class="sh-sub">${money(subtotal(o))} ₸${svcC?' + сервис '+money(svcC)+' = '+money(total(o)):''} ₸ · ${o.guests} гост. · ${mmss(Date.now()-o.openedAt)}</div>`));
+    sh.appendChild(el(`<h2>Закрытие стола ${esc(tableLabel(o))}</h2><div class="sh-sub">${money(subtotal(o))} ₸${svcC?' + сервис '+money(svcC)+' = '+money(total(o)):''} ₸ · ${o.guests} гост. · ${mmss(Date.now()-o.openedAt)}</div>`));
     const undel=o.items.filter(i=>!i.delivered).length;
     if(undel) sh.appendChild(el(`<div class="field" style="color:#E0847C;font-size:13px">Не отмечено отданными: ${undel} поз.</div>`));
     const rows=[['precheck','Пречек распечатан и отдан'],['paid','Гость оплатил'],['cleared','Стол убран']];
@@ -2342,7 +2389,7 @@ function renderSheet(){
     const acts=el('<div class="acts" style="margin-top:16px"></div>');
     const c=el('<button class="btn ghost">Не сейчас</button>'); c.onclick=()=>{S.sheet=null;render();};
     const k=el(`<button class="btn green" ${ready?'':'disabled'}>Закрыть стол</button>`);
-    k.onclick=()=>{ delete S.orders[S.activeTable]; S.sheet=null; S.screen='floor'; save(); render(); toast('Стол '+o.table+' закрыт'); };
+    k.onclick=()=>{ const nm=tableLabel(o); delete S.orders[S.activeTable]; S.sheet=null; S.screen='floor'; save(); render(); toast('Стол '+nm+' закрыт'); };
     acts.append(c,k); sh.appendChild(acts);
   }
 
@@ -2370,23 +2417,30 @@ function renderSheet(){
   else if(t==='table'){
     const o=order(S.activeTable);
     if(!o){ S.sheet=null; render(); return; }
-    sh.appendChild(el(`<h2>Стол ${esc(o.table)}</h2><div class="sh-sub">${o.items.length} поз. · ${money(total(o))} ₸ · ${mmss(Date.now()-o.openedAt)}</div>`));
+    sh.appendChild(el(`<h2>Стол ${esc(tableLabel(o))}</h2><div class="sh-sub">${o.items.length} поз. · ${money(total(o))} ₸ · ${mmss(Date.now()-o.openedAt)}</div>`));
 
-    // пересадка: заказ переезжает целиком на свободный номер
-    const zones=parseTables(S.tablesText);
-    const free=[];
-    zones.forEach(z=>z.tables.forEach(n=>{ if(!S.orders[n]) free.push(n); }));
-    const mf=el('<div class="field"><label>Пересадить на стол</label><div class="chips"></div></div>');
-    if(!free.length) mf.querySelector('.chips').appendChild(el('<span style="color:var(--muted);font-size:13px">свободных столов нет</span>'));
-    free.forEach(n=>{
-      const b=el(`<button class="chip">${esc(n)}</button>`);
-      b.onclick=()=>{
-        const old=o.table;
-        o.table=n; S.orders[n]=o; delete S.orders[old];
-        S.activeTable=n; S.sheet=null; save(); render(); toast('Стол '+old+' → '+n);
-      };
-      mf.querySelector('.chips').appendChild(b);
+    // пересадка: заказ переезжает целиком на свободный стол (зона + номер)
+    const mf=el('<div class="field"><label>Пересадить на стол</label></div>');
+    let anyFree=false;
+    parseTables(S.tablesText).forEach(z=>{
+      const free=z.tables.filter(n=>!S.orders[tkey(z.name,n)]);
+      if(!free.length) return;
+      anyFree=true;
+      if(z.name) mf.appendChild(el(`<div class="zone-title" style="margin:8px 2px 4px">${esc(z.name)}</div>`));
+      const box=el('<div class="chips"></div>');
+      free.forEach(n=>{
+        const b=el(`<button class="chip">${esc(n)}</button>`);
+        b.onclick=()=>{
+          const from=tableLabel(o), nk=tkey(z.name,n);
+          delete S.orders[o.key||S.activeTable];
+          o.key=nk; o.table=n; o.zone=z.name; S.orders[nk]=o;
+          S.activeTable=nk; S.sheet=null; save(); render(); toast('Стол '+from+' → '+tableLabel(o));
+        };
+        box.appendChild(b);
+      });
+      mf.appendChild(box);
     });
+    if(!anyFree) mf.appendChild(el('<span style="color:var(--muted);font-size:13px">свободных столов нет</span>'));
     sh.appendChild(mf);
 
     const gf=el('<div class="field"><label>Гостей</label><div class="stepper"><button id="gm">−</button><span class="v" id="gv"></span><button id="gp">+</button></div></div>');
@@ -2397,11 +2451,11 @@ function renderSheet(){
 
     const del=el('<button class="rowbtn danger">Удалить стол вместе с заказом</button>');
     del.onclick=()=>{
-      const warn=o.items.length?`Стол ${o.table}: удалить заказ на ${o.items.length} поз. (${money(total(o))} ₸)?`:`Закрыть пустой стол ${o.table}?`;
+      const warn=o.items.length?`Стол ${tableLabel(o)}: удалить заказ на ${o.items.length} поз. (${money(total(o))} ₸)?`:`Закрыть пустой стол ${tableLabel(o)}?`;
       if(!confirm(warn)) return;
-      const n=o.table;
-      delete S.orders[n]; S.sheet=null; S.screen='floor'; S.menuOpen=false;
-      save(); render(); toast('Стол '+n+' удалён');
+      const nm=tableLabel(o);
+      delete S.orders[o.key||S.activeTable]; S.sheet=null; S.screen='floor'; S.menuOpen=false;
+      save(); render(); toast('Стол '+nm+' удалён');
     };
     sh.appendChild(del);
     const cl=el('<button class="btn ghost" style="width:100%">Готово</button>');
