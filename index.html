@@ -234,6 +234,10 @@ const store = {
 };
 
 /* ---------- default menu (replace in settings) ---------- */
+/* Версия приложения. Поднимать при каждом деплое — по ней в настройках видно,
+   доехало обновление на телефон или на экране всё ещё старая копия. */
+const APP_VERSION='12.09.2026 · 1';
+
 const DEFAULT_MENU = `# Кухня
 ## Закуски
 Маринованные оливки, шичими тогараши | 4800 | ~6 | @кунжут | $Gufo Pinot Grigio (бокал)
@@ -2096,6 +2100,36 @@ function renderSettings(tb,mn,bt){
     if(confirm('Закрыть все столы?')){ S.orders={}; save(); toast('Смена очищена'); render(); }
   };
   mn.appendChild(dcard);
+
+  const ucard=el(`<div class="card">
+    <h3>Обновление приложения</h3>
+    <p>Версия на этом телефоне: <b>${esc(APP_VERSION)}</b>.<br>
+    Если на сайте вышла новая, а с домашнего экрана открывается старая — нажми «Обновить».
+    Кнопка сбрасывает кэш и перезагружает приложение начисто, переустанавливать с нуля не нужно.
+    Открытые столы, стопы и настройки останутся: они хранятся отдельно от кэша.</p>
+    <button class="smallbtn" id="upd">Обновить приложение</button>
+  </div>`);
+  ucard.querySelector('#upd').onclick=hardUpdate;
+  mn.appendChild(ucard);
+}
+
+/* Принудительное обновление: снимаем service worker и чистим его кэш, затем
+   грузимся с новым адресом, чтобы не подхватить страницу из HTTP-кэша.
+   localStorage не трогаем — там заказы и настройки смены. */
+async function hardUpdate(){
+  if(navigator.onLine===false){ toast('Нет сети — обновить не выйдет'); return; }
+  toast('Обновляю…');
+  try{
+    if('serviceWorker' in navigator){
+      const regs=await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r=>r.unregister()));
+    }
+    if(window.caches){
+      const keys=await caches.keys();
+      await Promise.all(keys.map(k=>caches.delete(k)));
+    }
+  }catch(e){}
+  location.replace(location.origin+location.pathname+'?u='+Date.now());
 }
 
 /* --- sheets --- */
@@ -2505,7 +2539,11 @@ document.addEventListener('visibilitychange',()=>{
    на старой версии — sw.js сам активируется сразу (skipWaiting/clients.claim),
    а тут перезагружаем страницу в момент смены контроллера */
 if('serviceWorker' in navigator && location.protocol==='https:'){
-  navigator.serviceWorker.register('sw.js').then(reg=>{
+  // updateViaCache:'none' — иначе браузер сам отдаёт закэшированный sw.js и до
+  // суток не замечает, что вышла новая версия; это и есть главная причина,
+  // почему PWA «не подтягивает обновление» без переустановки
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
+    reg.update().catch(()=>{});
     setInterval(()=>reg.update().catch(()=>{}), 30*60*1000);
     document.addEventListener('visibilitychange',()=>{
       if(document.visibilityState==='visible') reg.update().catch(()=>{});
